@@ -1,0 +1,289 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="Runtime">
+      <UniqueIdentifier>{2B78527B-263C-E650-29A3-F1D9E8B387B1}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Trace">
+      <UniqueIdentifier>{FA3C5F32-C5D7-9029-371C-76C17289A1A6}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Schedule">
+      <UniqueIdentifier>{5AB82172-86F7-CE33-141B-895C372EC784}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Platform">
+      <UniqueIdentifier>{8F4FDADE-AE6A-3ABC-0441-183EFC8445B3}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Storage">
+      <UniqueIdentifier>{0D2155BA-89F7-0C78-A3D5-948F7E86EDAB}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Event">
+      <UniqueIdentifier>{ED718F4B-28D6-1C80-DF9A-3D758918D3E6}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Service">
+      <UniqueIdentifier>{35A4F3EC-4373-5315-AE31-16761C1EA3CD}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Net">
+      <UniqueIdentifier>{1127C0A9-1CA1-591E-8BAB-A637D71E6E53}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Plugin">
+      <UniqueIdentifier>{95D20079-4124-9624-33EC-2F77C236D3F4}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Host">
+      <UniqueIdentifier>{B581F59D-6A51-5F7E-E28F-F9669F2F9A9A}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Pipeline">
+      <UniqueIdentifier>{705A60C2-8C9F-A989-387C-A539B9E2D7C1}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Script">
+      <UniqueIdentifier>{C5BD625B-26CD-AC40-BFC8-C2225D29F5CF}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Builtin">
+      <UniqueIdentifier>{25212DAB-FC0D-9A2F-B29B-7A399115210B}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Bee">
+      <UniqueIdentifier>{093B4C54-B01B-28E5-C51A-D1CEF5AC6490}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Bee\subprocess">
+      <UniqueIdentifier>{9AE4E801-AE97-F6BE-BA2E-7EC6C43A8939}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Bee\sys">
+      <UniqueIdentifier>{11199301-203F-EDFE-B950-33F6ABF4848C}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Bee\win">
+      <UniqueIdentifier>{1518D1B8-2900-82CF-69A7-59EEBB531607}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Bee\net">
+      <UniqueIdentifier>{A222FACF-A4F7-42A9-5857-5EB446DEC7C6}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Script\Lua">
+      <UniqueIdentifier>{EC98C15B-41C2-4E64-C973-22C3510D0E7D}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Script\QuickJS">
+      <UniqueIdentifier>{5B3B4581-113B-8594-9D6E-CD64ACB89E6D}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Script\CLR">
+      <UniqueIdentifier>{4AF03FEB-279B-FDFF-ED70-755E0E28EE43}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="pch.h" />
+    <ClInclude Include="src\Runtime\Types.h">
+      <Filter>Runtime</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Runtime\Runtime.h">
+      <Filter>Runtime</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Trace\Trace.h">
+      <Filter>Trace</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Schedule\ThreadPool.h">
+      <Filter>Schedule</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Schedule\Timer.h">
+      <Filter>Schedule</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Event\EventBus.h">
+      <Filter>Event</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Service\ServiceRegistry.h">
+      <Filter>Service</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Pipeline\Pipeline.h">
+      <Filter>Pipeline</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Plugin\IPlugin.h">
+      <Filter>Plugin</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Plugin\PluginRegistry.h">
+      <Filter>Plugin</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Host\IHostAPI.h">
+      <Filter>Host</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Host\HostAPIImpl.h">
+      <Filter>Host</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Builtin\BuiltinHello.h">
+      <Filter>Builtin</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Builtin\BuiltinHttpShell.h">
+      <Filter>Builtin</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Script\HostBridge.h">
+      <Filter>Script</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Script\Lua\LuaEngine.h">
+      <Filter>Script\Lua</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Script\ScriptPluginAdapter.h">
+      <Filter>Script</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Net\HttpServer.h">
+      <Filter>Net</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Net\HttpClient.h">
+      <Filter>Net</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Net\SseParser.h">
+      <Filter>Net</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Net\RouteRegistry.h">
+      <Filter>Net</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Net\WsTypes.h">
+      <Filter>Net</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Net\WsRegistry.h">
+      <Filter>Net</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Net\WsRouter.h">
+      <Filter>Net</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Platform\Platform.h">
+      <Filter>Platform</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Storage\FileStorage.h">
+      <Filter>Storage</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Storage\KvStore.h">
+      <Filter>Storage</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Storage\Config.h">
+      <Filter>Storage</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Net\WsController.h">
+      <Filter>Net</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Script\StdLib.h">
+      <Filter>Script</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Script\QuickJS\QuickJSEngine.h">
+      <Filter>Script\QuickJS</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Script\CLR\ClrHost.h">
+      <Filter>Script\CLR</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Script\CLR\ClrPluginAdapter.h">
+      <Filter>Script\CLR</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="src\Runtime\Runtime.cpp">
+      <Filter>Runtime</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Trace\Trace.cpp">
+      <Filter>Trace</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Schedule\ThreadPool.cpp">
+      <Filter>Schedule</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Schedule\Timer.cpp">
+      <Filter>Schedule</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Event\EventBus.cpp">
+      <Filter>Event</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Service\ServiceRegistry.cpp">
+      <Filter>Service</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Pipeline\Pipeline.cpp">
+      <Filter>Pipeline</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Plugin\PluginRegistry.cpp">
+      <Filter>Plugin</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Host\HostAPIImpl.cpp">
+      <Filter>Host</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Builtin\BuiltinHello.cpp">
+      <Filter>Builtin</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Builtin\BuiltinHttpShell.cpp">
+      <Filter>Builtin</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Script\HostBridge.cpp">
+      <Filter>Script</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Script\Lua\LuaEngine.cpp">
+      <Filter>Script\Lua</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Script\ScriptPluginAdapter.cpp">
+      <Filter>Script</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Net\HttpServer.cpp">
+      <Filter>Net</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Net\HttpClient.cpp">
+      <Filter>Net</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Net\SseParser.cpp">
+      <Filter>Net</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Net\RouteRegistry.cpp">
+      <Filter>Net</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Net\WsRegistry.cpp">
+      <Filter>Net</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Net\WsRouter.cpp">
+      <Filter>Net</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Platform\WinPlatform.cpp">
+      <Filter>Platform</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Storage\FileStorage.cpp">
+      <Filter>Storage</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Storage\KvStore.cpp">
+      <Filter>Storage</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Storage\Config.cpp">
+      <Filter>Storage</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Net\WsController.cpp">
+      <Filter>Net</Filter>
+    </ClCompile>
+    <ClCompile Include="..\ThirdParty\bee\subprocess\subprocess_win.cpp">
+      <Filter>Bee\subprocess</Filter>
+    </ClCompile>
+    <ClCompile Include="..\ThirdParty\bee\subprocess\process_select.cpp">
+      <Filter>Bee\subprocess</Filter>
+    </ClCompile>
+    <ClCompile Include="..\ThirdParty\bee\sys\file_handle.cpp">
+      <Filter>Bee\sys</Filter>
+    </ClCompile>
+    <ClCompile Include="..\ThirdParty\bee\sys\file_handle_win.cpp">
+      <Filter>Bee\sys</Filter>
+    </ClCompile>
+    <ClCompile Include="..\ThirdParty\bee\sys\path_win.cpp">
+      <Filter>Bee\sys</Filter>
+    </ClCompile>
+    <ClCompile Include="..\ThirdParty\bee\win\unicode.cpp">
+      <Filter>Bee\win</Filter>
+    </ClCompile>
+    <ClCompile Include="..\ThirdParty\bee\win\wtf8.cpp">
+      <Filter>Bee\win</Filter>
+    </ClCompile>
+    <ClCompile Include="..\ThirdParty\bee\net\socket.cpp">
+      <Filter>Bee\net</Filter>
+    </ClCompile>
+    <ClCompile Include="..\ThirdParty\bee\net\endpoint.cpp">
+      <Filter>Bee\net</Filter>
+    </ClCompile>
+    <ClCompile Include="..\ThirdParty\bee\net\event.cpp">
+      <Filter>Bee\net</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Script\StdLib.cpp">
+      <Filter>Script</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Script\QuickJS\QuickJSEngine.cpp">
+      <Filter>Script\QuickJS</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Script\CLR\ClrHost.cpp">
+      <Filter>Script\CLR</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Script\CLR\ClrPluginAdapter.cpp">
+      <Filter>Script\CLR</Filter>
+    </ClCompile>
+  </ItemGroup>
+</Project>

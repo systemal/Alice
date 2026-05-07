@@ -1,0 +1,7 @@
+{
+    "id": "handler-code-exec",
+    "name": "Code Execution Handler",
+    "version": "1.0.0",
+    "type": "handler",
+    "description": "LLM 代码执行能力: <run-pwsh>, <run-bash>"
+}

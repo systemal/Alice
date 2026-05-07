@@ -1,0 +1,40 @@
+# Alice - Doxygen 配置
+# 生成: doxygen Doxyfile
+
+PROJECT_NAME           = "Alice"
+PROJECT_BRIEF          = "C++ AI Agent Runtime Platform"
+PROJECT_NUMBER         = "0.3.0"
+
+OUTPUT_DIRECTORY       = Build/docs
+INPUT                  = AliceCore/src
+FILE_PATTERNS          = *.h *.cpp
+RECURSIVE              = YES
+
+# 只从 XML 注释生成 (/// <summary>)
+EXTRACT_ALL            = NO
+EXTRACT_PRIVATE        = NO
+EXTRACT_STATIC         = YES
+
+# XML 注释兼容
+ALIASES                =
+
+# 输出格式
+GENERATE_HTML          = YES
+GENERATE_LATEX         = NO
+HTML_OUTPUT            = html
+
+# 源码浏览
+SOURCE_BROWSER         = YES
+INLINE_SOURCES         = NO
+
+# 图表
+HAVE_DOT               = NO
+CLASS_DIAGRAMS         = YES
+COLLABORATION_GRAPH    = NO
+
+# 排除
+EXCLUDE_PATTERNS       = */ThirdParty/*
+
+# 编码
+INPUT_ENCODING         = UTF-8
+DOXYFILE_ENCODING      = UTF-8

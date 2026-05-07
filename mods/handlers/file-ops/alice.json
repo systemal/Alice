@@ -1,0 +1,7 @@
+{
+    "id": "handler-file-ops",
+    "name": "File Operations Handler",
+    "version": "1.0.0",
+    "type": "handler",
+    "description": "LLM 文件操作能力: <view-file>, <write-file>"
+}

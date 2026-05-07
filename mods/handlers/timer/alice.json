@@ -1,0 +1,7 @@
+{
+    "id": "handler-timer",
+    "name": "Timer Handler",
+    "version": "1.0.0",
+    "type": "handler",
+    "description": "LLM 定时器能力: <set-timer>, <list-timers/>, <remove-timer>"
+}

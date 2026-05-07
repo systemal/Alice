@@ -1,0 +1,13 @@
+{
+  "name": "alice",
+  "version-string": "0.1.0",
+  "description": "Alice - C++ AI Agent Runtime Platform",
+  "dependencies": [
+    "drogon",
+    "lua",
+    "nlohmann-json",
+    "quickjs-ng",
+    "spdlog",
+    "sol2"
+  ]
+}

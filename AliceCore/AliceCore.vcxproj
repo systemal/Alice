@@ -1,0 +1,151 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="Debug|x64">
+      <Configuration>Debug</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|x64">
+      <Configuration>Release</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+  </ItemGroup>
+  <PropertyGroup Label="Globals">
+    <VCProjectVersion>17.0</VCProjectVersion>
+    <ProjectGuid>{13265FD0-FA71-A7FB-11CD-0B1DFF14B1E6}</ProjectGuid>
+    <RootNamespace>AliceCore</RootNamespace>
+    <Keyword>Win32Proj</Keyword>
+    <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+  <PropertyGroup Label="Configuration" Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <ConfigurationType>StaticLibrary</ConfigurationType>
+    <PreferredToolArchitecture>x64</PreferredToolArchitecture>
+  </PropertyGroup>
+  <PropertyGroup Label="Configuration" Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <ConfigurationType>StaticLibrary</ConfigurationType>
+    <PreferredToolArchitecture>x64</PreferredToolArchitecture>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+  <PropertyGroup>
+    <OutDir>$(SolutionDir)Build\bin\$(Configuration)\</OutDir>
+    <IntDir>$(SolutionDir)Build\obj\$(ProjectName)\$(Configuration)\</IntDir>
+    <TargetName>AliceCore</TargetName>
+  </PropertyGroup>
+  <PropertyGroup Label="Vcpkg" Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <VcpkgUseStatic>true</VcpkgUseStatic>
+    <VcpkgTriplet>x64-windows-static</VcpkgTriplet>
+  </PropertyGroup>
+  <ItemDefinitionGroup>
+    <ClCompile>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <AdditionalIncludeDirectories>$(ProjectDir);$(ProjectDir)src;$(SolutionDir)ThirdParty\include;$(SolutionDir)ThirdParty;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>ALICE_CORE_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <LanguageStandard>stdcpp23</LanguageStandard>
+      <LanguageStandard_C>stdc17</LanguageStandard_C>
+      <MultiProcessorCompilation>true</MultiProcessorCompilation>
+      <RuntimeLibrary Condition="'$(Configuration)|$(Platform)'=='Release|x64'">MultiThreaded</RuntimeLibrary>
+    </ClCompile>
+  </ItemDefinitionGroup>
+  <!-- Source files -->
+  <ItemGroup>
+    <ClCompile Include="src\Runtime\Runtime.cpp" />
+    <ClCompile Include="src\Trace\Trace.cpp" />
+    <ClCompile Include="src\Schedule\ThreadPool.cpp" />
+    <ClCompile Include="src\Schedule\Timer.cpp" />
+    <ClCompile Include="src\Event\EventBus.cpp" />
+    <ClCompile Include="src\Service\ServiceRegistry.cpp" />
+    <ClCompile Include="src\Pipeline\Pipeline.cpp" />
+    <ClCompile Include="src\Plugin\PluginRegistry.cpp" />
+    <ClCompile Include="src\Host\HostAPIImpl.cpp" />
+    <ClCompile Include="src\Builtin\BuiltinHello.cpp" />
+    <ClCompile Include="src\Builtin\BuiltinHttpShell.cpp" />
+    <ClCompile Include="src\Script\HostBridge.cpp" />
+    <ClCompile Include="src\Script\Lua\LuaEngine.cpp" />
+    <ClCompile Include="src\Script\ScriptPluginAdapter.cpp" />
+    <ClCompile Include="src\Script\StdLib.cpp" />
+    <ClCompile Include="src\Script\QuickJS\QuickJSEngine.cpp" />
+    <ClCompile Include="src\Script\CLR\ClrHost.cpp" />
+    <ClCompile Include="src\Script\CLR\ClrPluginAdapter.cpp" />
+    <ClCompile Include="src\Net\HttpServer.cpp" />
+    <ClCompile Include="src\Net\HttpClient.cpp" />
+    <ClCompile Include="src\Net\SseParser.cpp" />
+    <ClCompile Include="src\Net\RouteRegistry.cpp" />
+    <ClCompile Include="src\Net\WsRegistry.cpp" />
+    <ClCompile Include="src\Net\WsRouter.cpp" />
+    <ClCompile Include="src\Net\WsController.cpp" />
+    <ClCompile Include="src\Platform\WinPlatform.cpp" />
+    <!-- bee C++ 底层 -->
+    <ClCompile Include="..\ThirdParty\bee\subprocess\subprocess_win.cpp">
+      <DisableSpecificWarnings>4244;4505;4100;4702</DisableSpecificWarnings>
+    </ClCompile>
+    <ClCompile Include="..\ThirdParty\bee\subprocess\process_select.cpp">
+      <DisableSpecificWarnings>4244;4505;4100;4702</DisableSpecificWarnings>
+    </ClCompile>
+    <ClCompile Include="..\ThirdParty\bee\sys\file_handle.cpp">
+      <DisableSpecificWarnings>4244;4505;4100;4702</DisableSpecificWarnings>
+    </ClCompile>
+    <ClCompile Include="..\ThirdParty\bee\sys\file_handle_win.cpp">
+      <DisableSpecificWarnings>4244;4505;4100;4702</DisableSpecificWarnings>
+    </ClCompile>
+    <ClCompile Include="..\ThirdParty\bee\sys\path_win.cpp">
+      <DisableSpecificWarnings>4244;4505;4100;4702</DisableSpecificWarnings>
+    </ClCompile>
+    <ClCompile Include="..\ThirdParty\bee\win\unicode.cpp">
+      <DisableSpecificWarnings>4244;4505;4100;4702</DisableSpecificWarnings>
+    </ClCompile>
+    <ClCompile Include="..\ThirdParty\bee\win\wtf8.cpp">
+      <DisableSpecificWarnings>4244;4505;4100;4702</DisableSpecificWarnings>
+    </ClCompile>
+    <ClCompile Include="..\ThirdParty\bee\net\socket.cpp">
+      <DisableSpecificWarnings>4244;4505;4100;4702</DisableSpecificWarnings>
+    </ClCompile>
+    <ClCompile Include="..\ThirdParty\bee\net\endpoint.cpp">
+      <DisableSpecificWarnings>4244;4505;4100;4702</DisableSpecificWarnings>
+    </ClCompile>
+    <ClCompile Include="..\ThirdParty\bee\net\event.cpp">
+      <DisableSpecificWarnings>4244;4505;4100;4702</DisableSpecificWarnings>
+    </ClCompile>
+    <ClCompile Include="src\Storage\FileStorage.cpp" />
+    <ClCompile Include="src\Storage\KvStore.cpp" />
+    <ClCompile Include="src\Storage\Config.cpp" />
+  </ItemGroup>
+  <!-- Header files -->
+  <ItemGroup>
+    <ClInclude Include="pch.h" />
+    <ClInclude Include="src\Runtime\Types.h" />
+    <ClInclude Include="src\Runtime\Runtime.h" />
+    <ClInclude Include="src\Trace\Trace.h" />
+    <ClInclude Include="src\Schedule\ThreadPool.h" />
+    <ClInclude Include="src\Schedule\Timer.h" />
+    <ClInclude Include="src\Event\EventBus.h" />
+    <ClInclude Include="src\Service\ServiceRegistry.h" />
+    <ClInclude Include="src\Pipeline\Pipeline.h" />
+    <ClInclude Include="src\Plugin\IPlugin.h" />
+    <ClInclude Include="src\Plugin\PluginRegistry.h" />
+    <ClInclude Include="src\Host\IHostAPI.h" />
+    <ClInclude Include="src\Host\HostAPIImpl.h" />
+    <ClInclude Include="src\Builtin\BuiltinHello.h" />
+    <ClInclude Include="src\Builtin\BuiltinHttpShell.h" />
+    <ClInclude Include="src\Script\HostBridge.h" />
+    <ClInclude Include="src\Script\Lua\LuaEngine.h" />
+    <ClInclude Include="src\Script\ScriptPluginAdapter.h" />
+    <ClInclude Include="src\Script\StdLib.h" />
+    <ClInclude Include="src\Script\QuickJS\QuickJSEngine.h" />
+    <ClInclude Include="src\Script\CLR\ClrHost.h" />
+    <ClInclude Include="src\Script\CLR\ClrPluginAdapter.h" />
+    <ClInclude Include="src\Net\HttpServer.h" />
+    <ClInclude Include="src\Net\HttpClient.h" />
+    <ClInclude Include="src\Net\SseParser.h" />
+    <ClInclude Include="src\Net\RouteRegistry.h" />
+    <ClInclude Include="src\Net\WsTypes.h" />
+    <ClInclude Include="src\Net\WsRegistry.h" />
+    <ClInclude Include="src\Net\WsRouter.h" />
+    <ClInclude Include="src\Net\WsController.h" />
+    <ClInclude Include="src\Platform\Platform.h" />
+    <ClInclude Include="src\Storage\FileStorage.h" />
+    <ClInclude Include="src\Storage\KvStore.h" />
+    <ClInclude Include="src\Storage\Config.h" />
+  </ItemGroup>
+<Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+</Project>

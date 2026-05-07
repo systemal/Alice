@@ -1,0 +1,10 @@
+{
+    "id": "hello-csharp",
+    "name": "Hello C# Plugin",
+    "version": "1.0.0",
+    "type": "plugin",
+    "runtime": "dotnet",
+    "entry_file": "HelloCSharp.dll",
+    "entry_type": "HelloCSharp.PluginEntry, HelloCSharp",
+    "description": "C# 测试插件 — 验证全量 alice.* API"
+}

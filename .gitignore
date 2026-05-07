@@ -1,0 +1,43 @@
+# Build outputs
+Build/
+*.obj
+*.lib
+*.exe
+*.pdb
+*.ilk
+*.exp
+*.idb
+
+# VS2022
+.vs/
+*.user
+*.suo
+*.ncb
+*.sdf
+*.opensdf
+*.cachefile
+ipch/
+
+# vcpkg
+vcpkg_installed/
+
+# .NET build artifacts
+**/bin/Debug/
+**/bin/Release/
+**/obj/
+
+# OS
+Thumbs.db
+desktop.ini
+.DS_Store
+*.lnk
+
+# Data (user-specific runtime data)
+data/users/
+
+# Doxygen output
+Build/docs/
+
+# IDE
+*.VC.db
+*.VC.opendb

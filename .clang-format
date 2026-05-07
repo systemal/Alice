@@ -1,0 +1,39 @@
+Language: Cpp
+BasedOnStyle: Microsoft
+
+IndentWidth: 4
+TabWidth: 4
+UseTab: Never
+ColumnLimit: 120
+
+# 大括号: 同行
+BreakBeforeBraces: Attach
+AllowShortFunctionsOnASingleLine: Inline
+AllowShortBlocksOnASingleLine: Always
+AllowShortIfStatementsOnASingleLine: WithoutElse
+AllowShortLoopsOnASingleLine: true
+
+# 空格: 与 VS 配置一致
+SpaceBeforeParens: ControlStatements
+SpacesInParentheses: true
+SpacesInSquareBrackets: true
+SpaceInEmptyParentheses: true
+SpaceAfterCStyleCast: true
+SpaceBeforeAssignmentOperators: true
+
+# 指针/引用: 靠左
+PointerAlignment: Left
+
+# include 排序
+SortIncludes: false
+
+# namespace 不缩进
+NamespaceIndentation: All
+
+# 行尾
+DeriveLineEnding: false
+UseCRLF: true
+
+# 注释
+AlignTrailingComments: true
+SpacesBeforeTrailingComments: 1

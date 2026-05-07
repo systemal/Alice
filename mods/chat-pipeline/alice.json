@@ -1,0 +1,6 @@
+{
+    "id": "chat-pipeline",
+    "name": "Chat Pipeline",
+    "version": "1.0.0",
+    "type": "plugin"
+}

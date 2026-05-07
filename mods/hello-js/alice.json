@@ -1,0 +1,7 @@
+{
+    "id": "hello-js",
+    "name": "Hello JS Plugin",
+    "version": "1.0.0",
+    "type": "plugin",
+    "description": "QuickJS 测试插件 — 验证全量 alice.* API"
+}
