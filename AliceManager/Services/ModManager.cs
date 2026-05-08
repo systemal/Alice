@@ -260,31 +260,33 @@ public partial class ModManager
 
     public async Task RemoveAsync(string modId)
     {
+        var mod = Mods.FirstOrDefault(m => m.Id == modId);
+
         // 先通知 Server 卸载
         if (RequestUnload != null)
         {
             try { await RequestUnload(modId); }
             catch { }
-            await Task.Delay(500); // 等 Server 卸载完释放文件锁
+            await Task.Delay(500);
         }
 
-        var runtimeDir = Path.Combine(_modsDir, modId);
-        var srcDir = Path.Combine(_modsSrcDir, modId);
-
+        // 删运行时目录
+        var runtimeDir = mod?.RuntimePath ?? Path.Combine(_modsDir, modId);
         if (Directory.Exists(runtimeDir))
         {
             try { Directory.Delete(runtimeDir, true); }
             catch (Exception ex) { OnLog?.Invoke("error", $"Remove runtime failed: {ex.Message}"); }
         }
-        if (Directory.Exists(srcDir))
+
+        // 删源码目录 (用实际 SrcPath, 不是拼 id)
+        var srcDir = mod?.SrcPath;
+        if (!string.IsNullOrEmpty(srcDir) && Directory.Exists(srcDir))
         {
             try { Directory.Delete(srcDir, true); }
             catch (Exception ex) { OnLog?.Invoke("error", $"Remove source failed: {ex.Message}"); }
         }
 
         OnLog?.Invoke("info", $"Removed: {modId}");
-
-        var mod = Mods.FirstOrDefault(m => m.Id == modId);
         if (mod != null) Mods.Remove(mod);
     }
 

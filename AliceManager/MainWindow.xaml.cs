@@ -1,7 +1,10 @@
 using System.Collections.ObjectModel;
+using System.Diagnostics;
+using System.IO;
 using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Data;
 using System.Windows.Input;
 using System.Windows.Interop;
 using System.Windows.Media;
@@ -14,28 +17,40 @@ namespace AliceManager;
 
 public partial class MainWindow : MetroWindow
 {
-    private readonly AliceClient _client = new();
+    private readonly AliceClient _client;
     private readonly ModManager _modManager;
+    private readonly AppSettings _settings;
     private readonly ObservableCollection<LogEntry> _logs = [];
+    private readonly CollectionViewSource _modsViewSource = new();
+    private readonly List<LogEntry> _logBuffer = [];
+    private readonly object _logLock = new();
+    private System.Windows.Threading.DispatcherTimer? _logTimer;
     private bool _realExit;
 
     public MainWindow()
     {
         InitializeComponent();
 
+        _settings = AppSettings.Load();
+        _client = new AliceClient(_settings.Host, _settings.Port);
+
         var baseDir = AppDomain.CurrentDomain.BaseDirectory;
         _modManager = new ModManager(baseDir);
-        _modManager.OnLog += (level, message) => Dispatcher.Invoke(() =>
+        _modManager.OnLog += (level, message) =>
         {
-            _logs.Add(new LogEntry { Time = DateTime.Now.ToString("HH:mm:ss"), Level = level, Source = "ModManager", Message = message });
-            while (_logs.Count > 2000) _logs.RemoveAt(0);
-        });
-
+            lock (_logLock)
+            {
+                _logBuffer.Add(new LogEntry { Time = DateTime.Now.ToString("HH:mm:ss"), Level = level, Source = "ModManager", Message = message });
+            }
+        };
         _modManager.RequestReload = async (id) => await _client.ReloadPluginAsync(id);
         _modManager.RequestUnload = async (id) => await _client.UnloadPluginAsync(id);
 
-        ModsGrid.ItemsSource = _modManager.Mods;
+        _modsViewSource.Source = _modManager.Mods;
+        ModsGrid.ItemsSource = _modsViewSource.View;
         LogGrid.ItemsSource = _logs;
+
+        DashServerAddr.Text = $"{_settings.Host}:{_settings.Port}";
     }
 
     private async void Window_Loaded(object sender, RoutedEventArgs e)
@@ -44,74 +59,140 @@ public partial class MainWindow : MetroWindow
         UpdateSettingsContent();
         InitTrayIcon();
 
-        // 扫描本地 mods
         _modManager.Scan();
-        DashModCount.Text = _modManager.Mods.Count.ToString();
-
-        _client.OnStateInit += (plugins, services) => Dispatcher.Invoke(() =>
+        foreach (var mod in _modManager.Mods) WatchModEnabled(mod);
+        _modManager.Mods.CollectionChanged += (_, args) =>
         {
-            // 用 Server 返回的状态更新已加载标记
-            foreach (var p in plugins)
+            if (args.NewItems != null)
+                foreach (ModInfo mod in args.NewItems) WatchModEnabled(mod);
+        };
+        RefreshDashboard();
+
+        // 事件绑定
+        _client.OnStateInit += (plugins, services) => Dispatcher.BeginInvoke(() =>
+        {
+            _handlingToggle = true;
+            var loadedIds = new HashSet<string>(plugins.Select(p => p.Id));
+            foreach (var mod in _modManager.Mods)
             {
-                var mod = _modManager.Mods.FirstOrDefault(m => m.Id == p.Id);
-                if (mod != null) mod.Status = ModStatus.Loaded;
+                if (loadedIds.Contains(mod.Id))
+                {
+                    mod.Status = ModStatus.Loaded;
+                    mod.Enabled = true;
+                }
+                else if (mod.Status == ModStatus.Loaded)
+                {
+                    // Server 没报告这个插件 = 没加载 = 保持当前状态但不覆盖 Disabled
+                }
             }
-            DashModCount.Text = _modManager.Mods.Count.ToString();
             DashServiceCount.Text = services.Count.ToString();
-            DashServerStatus.Text = "Online";
-            DashServerStatus.Foreground = new SolidColorBrush(Color.FromRgb(0x4C, 0xAF, 0x50));
+            RefreshDashboard();
+            _handlingToggle = false;
         });
 
-        _client.OnConnectionChanged += connected => Dispatcher.Invoke(() =>
+        _client.OnConnectionChanged += connected => Dispatcher.BeginInvoke(() =>
         {
-            StatusDotColor.Color = connected ? Color.FromRgb(0x4C, 0xAF, 0x50) : Color.FromRgb(0xF4, 0x43, 0x36);
-            StatusText.Text = connected ? "Connected" : "Disconnected";
-            StatusButtonText.Text = connected ? "Online" : "Offline";
-            DashServerStatus.Text = connected ? "Online" : "Offline";
-            DashServerStatus.Foreground = new SolidColorBrush(
-                connected ? Color.FromRgb(0x4C, 0xAF, 0x50) : Color.FromRgb(0xF4, 0x43, 0x36));
+            SetConnectionStatus(connected);
         });
 
-        _client.OnPluginUnloaded += id => Dispatcher.Invoke(() =>
+        _client.OnPluginUnloaded += id => Dispatcher.BeginInvoke(() =>
         {
             var mod = _modManager.Mods.FirstOrDefault(m => m.Id == id);
-            if (mod != null) mod.Status = ModStatus.Unknown;
-        });
-
-        _client.OnLog += (level, source, plugin, message) => Dispatcher.BeginInvoke(() =>
-        {
-            _logs.Add(new LogEntry
+            if (mod != null)
             {
-                Time = DateTime.Now.ToString("HH:mm:ss"),
-                Level = level,
-                Source = source,
-                Plugin = plugin,
-                Message = message
-            });
-            while (_logs.Count > 2000) _logs.RemoveAt(0);
+                mod.Status = mod.Enabled ? ModStatus.Unknown : ModStatus.Disabled;
+            }
         });
 
-        await ConnectToServer();
+        _client.OnLog += (level, source, plugin, message) =>
+        {
+            lock (_logLock)
+            {
+                _logBuffer.Add(new LogEntry
+                {
+                    Time = DateTime.Now.ToString("HH:mm:ss"),
+                    Level = level, Source = source,
+                    Plugin = plugin, Message = message
+                });
+            }
+        };
+
+        // 日志定时刷新 (100ms 批量, 不堵塞 UI) — 必须存字段防 GC
+        _logTimer = new System.Windows.Threading.DispatcherTimer { Interval = TimeSpan.FromMilliseconds(100) };
+        _logTimer.Tick += (_, _) => FlushLogBuffer();
+        _logTimer.Start();
+
+        // 启动连接
+        if (_settings.AutoConnect)
+            await ConnectWithLoadingAsync();
+        else
+            LoadingBar.Visibility = Visibility.Collapsed;
     }
 
-    private async Task ConnectToServer()
+    // ── 连接 (带加载动画) ──
+
+    private async Task ConnectWithLoadingAsync()
     {
-        StatusText.Text = "Connecting...";
-        StatusButtonText.Text = "Connecting...";
+        LoadingBar.Visibility = Visibility.Visible;
+        LoadingText.Text = "Connecting to Server...";
 
         if (!await _client.ConnectAsync(maxRetries: 3, retryDelayMs: 300))
         {
             if (!AliceClient.IsServerRunning())
             {
-                StatusText.Text = "Starting Server...";
+                LoadingText.Text = "Starting Alice Server...";
                 if (_client.TryLaunchServer())
                 {
-                    await Task.Delay(2000);
-                    await _client.ConnectAsync(maxRetries: 15, retryDelayMs: 500);
+                    LoadingText.Text = "Waiting for Server...";
+                    await _client.ConnectAsync(maxRetries: 20, retryDelayMs: 500);
                 }
             }
         }
+
+        LoadingBar.Visibility = Visibility.Collapsed;
     }
+
+    // ── 状态更新 ──
+
+    private void SetConnectionStatus(bool connected)
+    {
+        StatusDotColor.Color = connected ? Color.FromRgb(0x4C, 0xAF, 0x50) : Color.FromRgb(0xF4, 0x43, 0x36);
+        StatusText.Text = connected ? "Connected" : "Disconnected";
+        DashServerStatus.Text = connected ? "Online" : "Offline";
+        DashServerStatus.Foreground = new SolidColorBrush(
+            connected ? Color.FromRgb(0x4C, 0xAF, 0x50) : Color.FromRgb(0xF4, 0x43, 0x36));
+    }
+
+    private void RefreshDashboard()
+    {
+        DashModCount.Text = _modManager.Mods.Count.ToString();
+    }
+
+    private void TrimLogs()
+    {
+        while (_logs.Count > 2000) _logs.RemoveAt(0);
+    }
+
+    private void FlushLogBuffer()
+    {
+        List<LogEntry> batch;
+        lock (_logLock)
+        {
+            if (_logBuffer.Count == 0) return;
+            batch = [.. _logBuffer];
+            _logBuffer.Clear();
+        }
+
+        foreach (var entry in batch)
+            _logs.Add(entry);
+
+        TrimLogs();
+
+        if (ChkAutoScroll?.IsChecked == true && LogGrid.Items.Count > 0)
+            LogGrid.ScrollIntoView(LogGrid.Items[^1]);
+    }
+
+    // ── 托盘 ──
 
     private void InitTrayIcon()
     {
@@ -122,62 +203,89 @@ public partial class MainWindow : MetroWindow
             if (stream != null)
             {
                 using var bmp = new System.Drawing.Bitmap(stream);
-                var hIcon = bmp.GetHicon();
-                TrayIcon.Icon = System.Drawing.Icon.FromHandle(hIcon);
+                TrayIcon.Icon = System.Drawing.Icon.FromHandle(bmp.GetHicon());
                 Icon = new System.Windows.Media.Imaging.BitmapImage(uri);
             }
         }
         catch { }
     }
 
-    // ── 窗口关闭 → 最小化到托盘 ──
-
-    protected override void OnClosing(System.ComponentModel.CancelEventArgs e)
+    protected override async void OnClosing(System.ComponentModel.CancelEventArgs e)
     {
-        if (!_realExit)
+        if (!_realExit && _settings.MinimizeToTray)
         {
             e.Cancel = true;
             Hide();
             return;
         }
-        RealExit();
-        base.OnClosing(e);
-    }
 
-    private void RealExit()
-    {
-        _client.Dispose();
+        if (_closing) return;
+        _closing = true;
+        e.Cancel = true;
+
+        Show(); WindowState = WindowState.Normal;
+        BusyOverlay.Visibility = Visibility.Visible;
+        BusyText.Text = "Shutting down...";
+
+        await Task.Run(() =>
+        {
+            _client.ShutdownServer();
+        });
+
         TrayIcon.Dispose();
+        _client.Dispose();
+        Application.Current.Shutdown();
     }
-
-    // ── 托盘菜单 ──
+    private bool _closing;
 
     private void TrayIcon_DoubleClick(object sender, RoutedEventArgs e)
-    {
-        Show(); WindowState = WindowState.Normal; Activate();
-    }
+    { Show(); WindowState = WindowState.Normal; Activate(); }
 
     private void TrayMenu_Show(object sender, RoutedEventArgs e)
-    {
-        Show(); WindowState = WindowState.Normal; Activate();
-    }
+    { Show(); WindowState = WindowState.Normal; Activate(); }
 
     private void TrayMenu_Hide(object sender, RoutedEventArgs e) => Hide();
 
     private async void TrayMenu_RestartServer(object sender, RoutedEventArgs e)
     {
-        _client.SendShutdownCommand();
-        await Task.Run(() => _client.WaitForServerExit(5000));
-        _client.ForceKillServer();
+        Show(); WindowState = WindowState.Normal; Activate();
+        BusyOverlay.Visibility = Visibility.Visible;
+        BusyText.Text = "Restarting Server...";
+
+        await Task.Run(() =>
+        {
+            _client.SendShutdownCommand();
+            _client.WaitForServerExit(5000);
+            _client.ForceKillServer();
+        });
+
         _client.Reset();
         _modManager.Scan();
-        await ConnectToServer();
+        RefreshDashboard();
+        BusyOverlay.Visibility = Visibility.Collapsed;
+
+        await ConnectWithLoadingAsync();
     }
 
-    private void TrayMenu_Exit(object sender, RoutedEventArgs e)
+    private async void TrayMenu_Exit(object sender, RoutedEventArgs e)
     {
+        Show(); WindowState = WindowState.Normal;
         _realExit = true;
-        Close();
+
+        if (_closing) return;
+        _closing = true;
+
+        BusyOverlay.Visibility = Visibility.Visible;
+        BusyText.Text = "Shutting down...";
+
+        await Task.Run(() =>
+        {
+            _client.ShutdownServer();
+        });
+
+        TrayIcon.Dispose();
+        _client.Dispose();
+        Application.Current.Shutdown();
     }
 
     // ── Drag ──
@@ -219,30 +327,55 @@ public partial class MainWindow : MetroWindow
 
     // ── Mods 操作 ──
 
-    private async void ModsGrid_CellEditEnding(object sender, DataGridCellEditEndingEventArgs e)
+    private void ModsGrid_CurrentCellChanged(object sender, EventArgs e)
     {
-        if (e.Column is DataGridCheckBoxColumn && e.Row.Item is ModInfo mod)
+        if (sender is DataGrid dg) dg.BeginEdit();
+    }
+
+    private void SearchTextBox_TextChanged(object sender, TextChangedEventArgs e)
+    {
+        var filter = SearchTextBox.Text.Trim().ToLowerInvariant();
+        _modsViewSource.View.Filter = string.IsNullOrEmpty(filter) ? null : obj =>
         {
-            // CheckBox 的新值在 commit 之后才生效, 延迟一帧读取
-            await Task.Yield();
-            if (mod.Enabled)
+            if (obj is ModInfo mod)
+                return mod.Name.Contains(filter, StringComparison.OrdinalIgnoreCase)
+                    || mod.Id.Contains(filter, StringComparison.OrdinalIgnoreCase)
+                    || mod.Type.Contains(filter, StringComparison.OrdinalIgnoreCase);
+            return false;
+        };
+    }
+
+    private bool _handlingToggle;
+
+    private void WatchModEnabled(ModInfo mod)
+    {
+        mod.PropertyChanged += async (s, args) =>
+        {
+            if (args.PropertyName != "Enabled" || _handlingToggle) return;
+            if (s is not ModInfo m) return;
+
+            _handlingToggle = true;
+
+            if (m.Enabled)
             {
-                await _client.ReloadPluginAsync(mod.Id);
-                mod.Status = ModStatus.Loaded;
+                await Task.Run(async () => await _client.ReloadPluginAsync(m.Id));
+                m.Status = ModStatus.Loaded;
             }
             else
             {
-                await _client.UnloadPluginAsync(mod.Id);
-                mod.Status = ModStatus.Disabled;
+                await Task.Run(async () => await _client.UnloadPluginAsync(m.Id));
+                m.Status = ModStatus.Disabled;
             }
-        }
-    }
 
-    private void SearchTextBox_TextChanged(object sender, TextChangedEventArgs e) { }
+            _handlingToggle = false;
+        };
+    }
 
     private async void UpdateAll_Click(object sender, RoutedEventArgs e)
     {
+        ProgressIndicator.IsActive = true;
         var (updated, failed, upToDate) = await _modManager.UpdateAllAsync();
+        ProgressIndicator.IsActive = false;
         _logs.Add(new LogEntry
         {
             Time = DateTime.Now.ToString("HH:mm:ss"), Level = "info", Source = "ModManager",
@@ -252,7 +385,9 @@ public partial class MainWindow : MetroWindow
 
     private async void CompileAll_Click(object sender, RoutedEventArgs e)
     {
+        ProgressIndicator.IsActive = true;
         var (ok, fail) = await _modManager.CompileAllAsync();
+        ProgressIndicator.IsActive = false;
         _logs.Add(new LogEntry
         {
             Time = DateTime.Now.ToString("HH:mm:ss"), Level = "info", Source = "ModManager",
@@ -260,12 +395,12 @@ public partial class MainWindow : MetroWindow
         });
     }
 
-    private async void InstallButton_Click(object sender, RoutedEventArgs e)
+    private void InstallButton_Click(object sender, RoutedEventArgs e)
     {
         var dlg = new Views.InstallModWindow(_modManager) { Owner = this };
         dlg.ShowDialog();
         _modManager.Scan();
-        DashModCount.Text = _modManager.Mods.Count.ToString();
+        RefreshDashboard();
     }
 
     private async void MenuReload_Click(object sender, RoutedEventArgs e)
@@ -288,20 +423,17 @@ public partial class MainWindow : MetroWindow
 
     private void MenuOpenSource_Click(object sender, RoutedEventArgs e)
     {
-        if (ModsGrid.SelectedItem is ModInfo mod)
-            _modManager.OpenSourceFolder(mod.Id);
+        if (ModsGrid.SelectedItem is ModInfo mod) _modManager.OpenSourceFolder(mod.Id);
     }
 
     private void MenuOpenRuntime_Click(object sender, RoutedEventArgs e)
     {
-        if (ModsGrid.SelectedItem is ModInfo mod)
-            _modManager.OpenRuntimeFolder(mod.Id);
+        if (ModsGrid.SelectedItem is ModInfo mod) _modManager.OpenRuntimeFolder(mod.Id);
     }
 
     private void MenuGithub_Click(object sender, RoutedEventArgs e)
     {
-        if (ModsGrid.SelectedItem is ModInfo mod)
-            _modManager.OpenGitHub(mod.Id);
+        if (ModsGrid.SelectedItem is ModInfo mod) _modManager.OpenGitHub(mod.Id);
     }
 
     private async void MenuRemove_Click(object sender, RoutedEventArgs e)
@@ -310,27 +442,33 @@ public partial class MainWindow : MetroWindow
         {
             var result = await this.ShowMessageAsync("Confirm Remove",
                 $"Remove mod '{mod.Name}'?\nThis will delete source and runtime files.",
-                MahApps.Metro.Controls.Dialogs.MessageDialogStyle.AffirmativeAndNegative);
-            if (result == MahApps.Metro.Controls.Dialogs.MessageDialogResult.Affirmative)
+                MessageDialogStyle.AffirmativeAndNegative);
+            if (result == MessageDialogResult.Affirmative)
             {
                 await _modManager.RemoveAsync(mod.Id);
-                DashModCount.Text = _modManager.Mods.Count.ToString();
+                RefreshDashboard();
             }
         }
     }
 
     private void ClearLog_Click(object sender, RoutedEventArgs e) => _logs.Clear();
 
-    // ── Settings ──
+    private void OpenModsFolder_Click(object sender, RoutedEventArgs e)
+    {
+        var modsDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "mods");
+        if (Directory.Exists(modsDir))
+            Process.Start("explorer", modsDir);
+    }
+
+    // ── Settings (持久化) ──
 
     private void SettingsTree_SelectedItemChanged(object sender, RoutedPropertyChangedEventArgs<object> e)
         => UpdateSettingsContent();
 
     private void UpdateSettingsContent()
     {
-        if (SettingsFrame is null || SettingsTree is null) return;
-        var selected = SettingsTree.SelectedItem as TreeViewItem;
-        var header = selected?.Header?.ToString() ?? "General";
+        if (SettingsFrame is null || SettingsTree is null || _settings is null) return;
+        var header = (SettingsTree.SelectedItem as TreeViewItem)?.Header?.ToString() ?? "General";
         SettingsFrame.Content = header switch
         {
             "General" => BuildGeneralSettings(),
@@ -340,42 +478,69 @@ public partial class MainWindow : MetroWindow
         };
     }
 
-    private static UIElement BuildGeneralSettings()
+    private UIElement BuildGeneralSettings()
     {
         var panel = new StackPanel();
-        panel.Children.Add(MakeCheckBox("Start with Windows", false));
-        panel.Children.Add(MakeCheckBox("Minimize to tray on close", true));
-        panel.Children.Add(MakeCheckBox("Auto-connect to Server on startup", true));
-        panel.Children.Add(MakeCheckBox("Watch mods folder for changes", true));
+        panel.Children.Add(MakeToggle("Start with Windows", _settings.StartWithWindows, v => { _settings.StartWithWindows = v; _settings.Save(); AppSettings.SetStartWithWindows(v); }));
+        panel.Children.Add(MakeToggle("Minimize to tray on close", _settings.MinimizeToTray, v => { _settings.MinimizeToTray = v; _settings.Save(); }));
+        panel.Children.Add(MakeToggle("Auto-connect on startup", _settings.AutoConnect, v => { _settings.AutoConnect = v; _settings.Save(); }));
+        panel.Children.Add(MakeToggle("Watch mods folder", _settings.WatchModsFolder, v => { _settings.WatchModsFolder = v; _settings.Save(); }));
         return panel;
     }
 
-    private static UIElement BuildServerSettings()
+    private UIElement BuildServerSettings()
     {
         var panel = new StackPanel();
-        panel.Children.Add(MakeField("Host", "localhost"));
-        panel.Children.Add(MakeField("Port", "645"));
+        panel.Children.Add(MakeField("Host", _settings.Host, v => { _settings.Host = v; _settings.Save(); }));
+        panel.Children.Add(MakeField("Port", _settings.Port.ToString(), v => { if (int.TryParse(v, out var p)) { _settings.Port = p; _settings.Save(); } }));
+
         var btn = new Button { Content = "Test Connection", Width = 120, Height = 25, HorizontalAlignment = HorizontalAlignment.Left, Margin = new Thickness(0, 8, 0, 0) };
+        btn.Click += async (_, _) =>
+        {
+            btn.Content = "Testing...";
+            btn.IsEnabled = false;
+            try
+            {
+                using var http = new System.Net.Http.HttpClient { Timeout = TimeSpan.FromSeconds(3) };
+                var resp = await http.GetAsync($"http://{_settings.Host}:{_settings.Port}/api/ping");
+                btn.Content = resp.IsSuccessStatusCode ? "Connected!" : "Failed";
+            }
+            catch { btn.Content = "Failed"; }
+            await Task.Delay(1500);
+            btn.Content = "Test Connection";
+            btn.IsEnabled = true;
+        };
         panel.Children.Add(btn);
         return panel;
     }
 
-    private static UIElement BuildPathSettings()
+    private UIElement BuildPathSettings()
     {
+        var baseDir = AppDomain.CurrentDomain.BaseDirectory;
         var panel = new StackPanel();
-        panel.Children.Add(MakeField("Mods Directory", "", true));
-        panel.Children.Add(MakeField("Server Executable", "", true));
+        panel.Children.Add(MakeField("Mods Directory", Path.Combine(baseDir, "mods"), readOnly: true));
+        panel.Children.Add(MakeField("Mods Source", Path.Combine(baseDir, "mods-src"), readOnly: true));
+        panel.Children.Add(MakeField("SDK Directory", Path.Combine(baseDir, "sdk"), readOnly: true));
         return panel;
     }
 
-    private static UIElement MakeCheckBox(string label, bool isChecked)
-        => new CheckBox { Content = label, IsChecked = isChecked, Margin = new Thickness(0, 0, 0, 8) };
+    private static UIElement MakeToggle(string label, bool isChecked, Action<bool>? onChanged = null)
+    {
+        var cb = new CheckBox { Content = label, IsChecked = isChecked, Margin = new Thickness(0, 0, 0, 8) };
+        if (onChanged != null)
+            cb.Checked += (_, _) => onChanged(true);
+            cb.Unchecked += (_, _) => onChanged!(false);
+        return cb;
+    }
 
-    private static UIElement MakeField(string label, string value, bool readOnly = false)
+    private static UIElement MakeField(string label, string value, Action<string>? onChanged = null, bool readOnly = false)
     {
         var sp = new StackPanel { Margin = new Thickness(0, 0, 0, 10) };
         sp.Children.Add(new TextBlock { Text = label, FontSize = 12, Margin = new Thickness(0, 0, 0, 4) });
-        sp.Children.Add(new TextBox { Text = value, IsReadOnly = readOnly, Height = 23 });
+        var tb = new TextBox { Text = value, IsReadOnly = readOnly, Height = 23 };
+        if (onChanged != null)
+            tb.LostFocus += (_, _) => onChanged(tb.Text);
+        sp.Children.Add(tb);
         return sp;
     }
 }

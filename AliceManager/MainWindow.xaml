@@ -48,9 +48,8 @@
             </Button>
             <Button Cursor="Hand" Click="NavButton_Click" Tag="2">
                 <StackPanel Orientation="Horizontal">
-                    <materialDesign:PackIcon Kind="Refresh" Width="14" Height="14"/>
-                    <TextBlock Margin="4,0,0,0" VerticalAlignment="Center" Text="Status"
-                               x:Name="StatusButtonText"/>
+                    <materialDesign:PackIcon Kind="Console" Width="14" Height="14"/>
+                    <TextBlock Margin="4,0,0,0" VerticalAlignment="Center" Text="Logs"/>
                 </StackPanel>
             </Button>
             <Button Cursor="Hand" Click="NavButton_Click" Tag="3">
@@ -63,6 +62,22 @@
     </mah:MetroWindow.RightWindowCommands>
 
     <Grid>
+        <!-- 系统托盘 -->
+        <tb:TaskbarIcon x:Name="TrayIcon" Visibility="Visible" ToolTipText="Alice Manager"
+                        TrayMouseDoubleClick="TrayIcon_DoubleClick">
+            <tb:TaskbarIcon.ContextMenu>
+                <ContextMenu>
+                    <MenuItem Header="Show" Click="TrayMenu_Show"/>
+                    <MenuItem Header="Hide" Click="TrayMenu_Hide"/>
+                    <Separator/>
+                    <MenuItem Header="Restart Server" Click="TrayMenu_RestartServer"/>
+                    <Separator/>
+                    <MenuItem Header="Exit" Click="TrayMenu_Exit"/>
+                </ContextMenu>
+            </tb:TaskbarIcon.ContextMenu>
+        </tb:TaskbarIcon>
+
+        <!-- 主内容 -->
         <TabControl Margin="0" x:Name="MainTab" BorderThickness="0">
             <TabControl.ItemContainerStyle>
                 <Style TargetType="TabItem">
@@ -73,25 +88,8 @@
             <!-- ═══ Tab 0: Dashboard ═══ -->
             <TabItem>
                 <Grid Background="#FFE5E5E5">
-                    <!-- 系统托盘 (图标在 code-behind 生成) -->
-                    <tb:TaskbarIcon x:Name="TrayIcon"
-                                    Visibility="Visible"
-                                    ToolTipText="Alice Manager"
-                                    TrayMouseDoubleClick="TrayIcon_DoubleClick">
-                        <tb:TaskbarIcon.ContextMenu>
-                            <ContextMenu>
-                                <MenuItem Header="Show" Click="TrayMenu_Show"/>
-                                <MenuItem Header="Hide" Click="TrayMenu_Hide"/>
-                                <Separator/>
-                                <MenuItem Header="Restart Server" Click="TrayMenu_RestartServer"/>
-                                <Separator/>
-                                <MenuItem Header="Exit" Click="TrayMenu_Exit"/>
-                            </ContextMenu>
-                        </tb:TaskbarIcon.ContextMenu>
-                    </tb:TaskbarIcon>
                     <StackPanel Margin="16,12,16,16">
                         <TextBlock Text="Dashboard" FontSize="18" FontWeight="SemiBold" Margin="0,0,0,16"/>
-
                         <WrapPanel Margin="0,0,0,12">
                             <Border Background="White" CornerRadius="3" Padding="16,12" Margin="0,0,10,10"
                                     BorderBrush="#DDDDDD" BorderThickness="1" Width="180">
@@ -99,7 +97,8 @@
                                     <TextBlock Text="Server" FontSize="11" Foreground="#888"/>
                                     <TextBlock Text="Offline" FontSize="18" FontWeight="Bold" Foreground="#F44336"
                                                x:Name="DashServerStatus" Margin="0,4,0,0"/>
-                                    <TextBlock Text="localhost:645" FontSize="10" Foreground="#AAA" Margin="0,2,0,0"/>
+                                    <TextBlock FontSize="10" Foreground="#AAA" Margin="0,2,0,0"
+                                               x:Name="DashServerAddr" Text="localhost:645"/>
                                 </StackPanel>
                             </Border>
                             <Border Background="White" CornerRadius="3" Padding="16,12" Margin="0,0,10,10"
@@ -119,20 +118,18 @@
                                 </StackPanel>
                             </Border>
                         </WrapPanel>
-
                         <TextBlock Text="Quick Actions" FontSize="13" FontWeight="SemiBold" Margin="0,4,0,8"/>
                         <WrapPanel>
                             <Button Content="Reload All Mods" Height="25" Width="120" Margin="0,0,6,0"/>
-                            <Button Content="Open Mods Folder" Height="25" Width="130" Margin="0,0,6,0"/>
+                            <Button Content="Open Mods Folder" Height="25" Width="130" Margin="0,0,6,0" Click="OpenModsFolder_Click"/>
                         </WrapPanel>
                     </StackPanel>
                 </Grid>
             </TabItem>
 
-            <!-- ═══ Tab 1: Mods (L# Assemblies 布局) ═══ -->
+            <!-- ═══ Tab 1: Mods ═══ -->
             <TabItem>
                 <Grid Background="#FFE5E5E5" Margin="0,2,0,-2">
-                    <!-- DataGrid (绝对定位, 留出上下工具栏空间) -->
                     <DataGrid x:Name="ModsGrid"
                               Margin="12,44,12,44"
                               CanUserAddRows="False"
@@ -142,12 +139,13 @@
                               HeadersVisibility="Column"
                               CanUserResizeColumns="True"
                               CanUserSortColumns="True"
-                              CellEditEnding="ModsGrid_CellEditEnding">
+                              CurrentCellChanged="ModsGrid_CurrentCellChanged"
+                              >
                         <DataGrid.Columns>
-                            <DataGridCheckBoxColumn Width="50"
+                            <DataGridCheckBoxColumn Width="50" Header=""
                                                     Binding="{Binding Enabled, UpdateSourceTrigger=PropertyChanged}"/>
                             <DataGridTextColumn Header="Name" Width="220"
-                                                Binding="{Binding Name}"/>
+                                                Binding="{Binding Name}" IsReadOnly="True"/>
                             <DataGridTextColumn Header="Type" Width="90"
                                                 Binding="{Binding Type}" IsReadOnly="True"/>
                             <DataGridTextColumn Header="Runtime" Width="90"
@@ -214,14 +212,12 @@
                         </DataGrid.ContextMenu>
                     </DataGrid>
 
-                    <!-- 顶部右侧: 搜索框 -->
                     <TextBox x:Name="SearchTextBox" Height="26" Width="280"
                              HorizontalAlignment="Right" VerticalAlignment="Top"
                              Margin="0,12,12,0"
                              mah:TextBoxHelper.Watermark="Search mods..."
                              TextChanged="SearchTextBox_TextChanged"/>
 
-                    <!-- 底部左侧: 批量操作 -->
                     <Button Content="Update All" HorizontalAlignment="Left"
                             Margin="12,0,0,12" Width="115" Height="28" VerticalAlignment="Bottom"
                             Click="UpdateAll_Click"/>
@@ -229,12 +225,10 @@
                             Margin="133,0,0,12" Width="115" Height="28" VerticalAlignment="Bottom"
                             Click="CompileAll_Click"/>
 
-                    <!-- 底部右侧: 安装按钮 -->
                     <Button Content="Install from GitHub" HorizontalAlignment="Right"
                             Margin="0,0,12,12" Width="190" Height="28" VerticalAlignment="Bottom"
                             Click="InstallButton_Click"/>
 
-                    <!-- 底部右侧: 进度指示 -->
                     <mah:ProgressRing IsActive="False" HorizontalAlignment="Right"
                                       Margin="0,0,24,54" VerticalAlignment="Bottom"
                                       Width="48" Height="48"
@@ -242,7 +236,7 @@
                 </Grid>
             </TabItem>
 
-            <!-- ═══ Tab 2: Logs ═══ -->
+            <!-- ═══ Tab 2: Logs (带颜色 + 自动滚动) ═══ -->
             <TabItem>
                 <Grid Background="#FFE5E5E5">
                     <DataGrid x:Name="LogGrid"
@@ -254,8 +248,30 @@
                         <DataGrid.Columns>
                             <DataGridTextColumn Header="Time" Width="85"
                                                 Binding="{Binding Time}"/>
-                            <DataGridTextColumn Header="Level" Width="65"
-                                                Binding="{Binding Level}"/>
+                            <DataGridTemplateColumn Header="Level" Width="65">
+                                <DataGridTemplateColumn.CellTemplate>
+                                    <DataTemplate>
+                                        <TextBlock Text="{Binding Level}" Padding="2,0">
+                                            <TextBlock.Style>
+                                                <Style TargetType="TextBlock">
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding Level}" Value="error">
+                                                            <Setter Property="Foreground" Value="#F44336"/>
+                                                            <Setter Property="FontWeight" Value="Bold"/>
+                                                        </DataTrigger>
+                                                        <DataTrigger Binding="{Binding Level}" Value="warning">
+                                                            <Setter Property="Foreground" Value="#FF9800"/>
+                                                        </DataTrigger>
+                                                        <DataTrigger Binding="{Binding Level}" Value="debug">
+                                                            <Setter Property="Foreground" Value="#9E9E9E"/>
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </TextBlock.Style>
+                                        </TextBlock>
+                                    </DataTemplate>
+                                </DataGridTemplateColumn.CellTemplate>
+                            </DataGridTemplateColumn>
                             <DataGridTextColumn Header="Source" Width="150"
                                                 Binding="{Binding Source}"/>
                             <DataGridTextColumn Header="Plugin" Width="130"
@@ -265,15 +281,17 @@
                         </DataGrid.Columns>
                     </DataGrid>
 
+                    <CheckBox x:Name="ChkAutoScroll" Content="Auto-scroll" IsChecked="True"
+                              HorizontalAlignment="Right" VerticalAlignment="Bottom"
+                              Margin="0,0,12,12"/>
+
                     <Button Content="Clear Log" HorizontalAlignment="Left"
                             Margin="10,0,0,10" Width="95" Height="25" VerticalAlignment="Bottom"
                             Click="ClearLog_Click"/>
-                    <Button Content="Open Folder" HorizontalAlignment="Left"
-                            Margin="110,0,0,10" Width="95" Height="25" VerticalAlignment="Bottom"/>
                 </Grid>
             </TabItem>
 
-            <!-- ═══ Tab 3: Settings (L# 风格: 左 TreeView + 右 Content) ═══ -->
+            <!-- ═══ Tab 3: Settings ═══ -->
             <TabItem>
                 <Grid Background="#FFE5E5E5">
                     <ContentControl x:Name="SettingsFrame" Margin="167,10,10,10"/>
@@ -287,5 +305,26 @@
                 </Grid>
             </TabItem>
         </TabControl>
+
+        <!-- 启动状态栏 (底部横条, 不遮挡内容) -->
+        <Border x:Name="LoadingBar" Background="{DynamicResource MahApps.Brushes.Accent}"
+                Height="32" VerticalAlignment="Bottom"
+                Visibility="Visible">
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
+                <mah:ProgressRing IsActive="True" Width="18" Height="18" Margin="0,0,8,0"/>
+                <TextBlock x:Name="LoadingText" Text="Starting Alice Server..."
+                           FontSize="12" Foreground="White" VerticalAlignment="Center"/>
+            </StackPanel>
+        </Border>
+
+        <!-- 操作遮罩层 (Restart/Shutdown/Enable/Disable) -->
+        <Grid x:Name="BusyOverlay" Background="#C0FFFFFF" Visibility="Collapsed">
+            <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
+                <mah:ProgressRing IsActive="True" Width="50" Height="50"/>
+                <TextBlock x:Name="BusyText" Text="Working..."
+                           FontSize="13" HorizontalAlignment="Center" Margin="0,12,0,0"
+                           Foreground="#555"/>
+            </StackPanel>
+        </Grid>
     </Grid>
 </mah:MetroWindow>

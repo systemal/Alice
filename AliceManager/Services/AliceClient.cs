@@ -31,8 +31,6 @@ public class AliceClient : IDisposable
 {
     private ClientWebSocket? _ws;
     private NamedPipeClientStream? _pipe;
-    private StreamReader? _pipeReader;
-    private StreamWriter? _pipeWriter;
     private CancellationTokenSource? _cts;
     private readonly string _host;
     private readonly int _port;
@@ -84,8 +82,28 @@ public class AliceClient : IDisposable
                 WorkingDirectory = exeDir,
                 UseShellExecute = false,
                 CreateNoWindow = true,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                StandardOutputEncoding = Encoding.UTF8,
+                StandardErrorEncoding = Encoding.UTF8,
             });
             _managed = true;
+
+            // stdout/stderr → OnLog (独立线程, 不阻塞)
+            if (_serverProcess != null)
+            {
+                _serverProcess.OutputDataReceived += (_, e) =>
+                {
+                    if (e.Data != null) ParseAndFireLog(e.Data);
+                };
+                _serverProcess.ErrorDataReceived += (_, e) =>
+                {
+                    if (e.Data != null) ParseAndFireLog(e.Data);
+                };
+                _serverProcess.BeginOutputReadLine();
+                _serverProcess.BeginErrorReadLine();
+            }
+
             return true;
         }
         catch
@@ -112,8 +130,6 @@ public class AliceClient : IDisposable
             {
                 _pipe = new NamedPipeClientStream(".", "Alice_IPC", PipeDirection.InOut, PipeOptions.Asynchronous);
                 await _pipe.ConnectAsync(retryDelayMs, _cts!.Token);
-                _pipeReader = new StreamReader(_pipe, Encoding.UTF8);
-                _pipeWriter = new StreamWriter(_pipe, Encoding.UTF8) { AutoFlush = true };
                 OnConnectionChanged?.Invoke(true);
                 _ = Task.Run(() => PipeReceiveLoop(_cts.Token));
                 return true;
@@ -158,11 +174,13 @@ public class AliceClient : IDisposable
 
     public async Task SendAsync(string type, object? data = null)
     {
-        var msg = JsonSerializer.Serialize(new { type, data });
+        var msg = JsonSerializer.Serialize(new { type, data }) + "\n";
 
-        if (_managed && _pipeWriter != null)
+        if (_managed && _pipe?.IsConnected == true)
         {
-            await _pipeWriter.WriteLineAsync(msg);
+            var bytes = Encoding.UTF8.GetBytes(msg);
+            await _pipe.WriteAsync(bytes, 0, bytes.Length);
+            await _pipe.FlushAsync();
             return;
         }
 
@@ -182,10 +200,11 @@ public class AliceClient : IDisposable
     {
         try
         {
-            if (_managed && _pipeWriter != null && _pipe?.IsConnected == true)
+            if (_managed && _pipe?.IsConnected == true)
             {
-                _pipeWriter.WriteLine(JsonSerializer.Serialize(new { type = "shutdown" }));
-                _pipeWriter.Flush();
+                var msg = Encoding.UTF8.GetBytes(JsonSerializer.Serialize(new { type = "shutdown" }) + "\n");
+                _pipe.Write(msg, 0, msg.Length);
+                _pipe.Flush();
             }
         }
         catch { }
@@ -216,7 +235,7 @@ public class AliceClient : IDisposable
 
     public async Task UnloadPluginAsync(string pluginId)
     {
-        if (_managed && _pipeWriter != null)
+        if (_managed && _pipe?.IsConnected == true)
         {
             await SendAsync("plugin.unload", new { id = pluginId });
             return;
@@ -227,7 +246,7 @@ public class AliceClient : IDisposable
 
     public async Task ReloadPluginAsync(string pluginId)
     {
-        if (_managed && _pipeWriter != null)
+        if (_managed && _pipe?.IsConnected == true)
         {
             await SendAsync("plugin.reload", new { id = pluginId });
             return;
@@ -241,13 +260,30 @@ public class AliceClient : IDisposable
 
     private async Task PipeReceiveLoop(CancellationToken ct)
     {
+        var buf = new byte[65536];
+        var sb = new StringBuilder();
+
         try
         {
             while (!ct.IsCancellationRequested && _pipe?.IsConnected == true)
             {
-                var line = await _pipeReader!.ReadLineAsync(ct);
-                if (line == null) break;
-                HandleMessage(line);
+                int n = await _pipe.ReadAsync(buf, 0, buf.Length, ct);
+                if (n <= 0) break;
+
+                sb.Append(Encoding.UTF8.GetString(buf, 0, n));
+
+                // 按 '\n' 切完整行
+                var text = sb.ToString();
+                int pos;
+                while ((pos = text.IndexOf('\n')) >= 0)
+                {
+                    var line = text[..pos];
+                    text = text[(pos + 1)..];
+                    if (line.Length > 0)
+                        HandleMessage(line);
+                }
+                sb.Clear();
+                sb.Append(text);
             }
         }
         catch (OperationCanceledException) { }
@@ -338,6 +374,72 @@ public class AliceClient : IDisposable
         catch { }
     }
 
+    // spdlog 格式: [2026-05-08 23:05:18.123] [info] [Runtime.cpp:29] Alice Runtime 初始化
+    // 或插件日志: [2026-05-08 23:05:18.123] [info] [HostAPIImpl.cpp:255] [hello-csharp] 消息内容
+    private void ParseAndFireLog(string line)
+    {
+        if (string.IsNullOrWhiteSpace(line)) return;
+
+        var level = "info";
+        var source = "";
+        var plugin = "";
+        var message = line;
+
+        try
+        {
+            // 匹配 spdlog 格式: [时间] [等级] [来源] 消息
+            if (line.StartsWith('['))
+            {
+                int i = 0;
+
+                // [时间]
+                int end1 = line.IndexOf(']', i);
+                if (end1 < 0) { OnLog?.Invoke(level, source, plugin, message); return; }
+                i = end1 + 2;
+
+                // [等级]
+                if (i < line.Length && line[i] == '[')
+                {
+                    int end2 = line.IndexOf(']', i);
+                    if (end2 > i)
+                    {
+                        level = line[(i + 1)..end2].Trim();
+                        i = end2 + 2;
+                    }
+                }
+
+                // [来源]
+                if (i < line.Length && line[i] == '[')
+                {
+                    int end3 = line.IndexOf(']', i);
+                    if (end3 > i)
+                    {
+                        source = line[(i + 1)..end3].Trim();
+                        i = end3 + 2;
+                    }
+                }
+
+                // 剩余是消息, 可能以 [plugin_id] 开头
+                if (i < line.Length)
+                    message = line[i..];
+
+                // 解析 [plugin_id] 前缀
+                if (message.StartsWith('['))
+                {
+                    int endP = message.IndexOf(']');
+                    if (endP > 0)
+                    {
+                        plugin = message[1..endP];
+                        message = message[(endP + 1)..].TrimStart();
+                    }
+                }
+            }
+        }
+        catch { }
+
+        OnLog?.Invoke(level, source, plugin, message);
+    }
+
     private static List<PluginInfo> ParsePlugins(JsonElement arr)
     {
         var list = new List<PluginInfo>();
@@ -373,13 +475,9 @@ public class AliceClient : IDisposable
     public void Reset()
     {
         _cts?.Cancel();
-        _pipeWriter?.Dispose();
-        _pipeReader?.Dispose();
         _pipe?.Dispose();
         _ws?.Dispose();
         _cts?.Dispose();
-        _pipeWriter = null;
-        _pipeReader = null;
         _pipe = null;
         _ws = null;
         _cts = null;

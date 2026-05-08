@@ -22,7 +22,6 @@ namespace alice {
         if ( !running_ ) return;
         running_ = false;
 
-        // 关闭当前客户端连接 (解除 ReadFile 阻塞)
         {
             std::lock_guard lock( write_mutex_ );
             if ( client_handle_ ) {
@@ -34,24 +33,24 @@ namespace alice {
             }
         }
 
-        // 唤醒阻塞的 ConnectNamedPipe
         auto wake = CreateFileA( PIPE_NAME, GENERIC_READ | GENERIC_WRITE, 0,
                                   nullptr, OPEN_EXISTING, 0, nullptr );
         if ( wake != INVALID_HANDLE_VALUE ) ::CloseHandle( wake );
 
         if ( server_thread_.joinable( ) ) server_thread_.join( );
+        if ( write_thread_.joinable( ) ) write_thread_.join( );
+        if ( read_thread_.joinable( ) ) read_thread_.join( );
         ALICE_INFO( "PipeServer: 已停止" );
     }
 
     void PipeServer::ServerLoop( ) {
         while ( running_ ) {
-            // 每轮创建新管道实例等待客户端
             HANDLE pipe = CreateNamedPipeA(
                 PIPE_NAME,
                 PIPE_ACCESS_DUPLEX,
                 PIPE_TYPE_BYTE | PIPE_READMODE_BYTE | PIPE_WAIT,
-                1,                  // 单客户端
-                8192, 8192, 0, nullptr );
+                1,
+                65536, 65536, 0, nullptr );
 
             if ( pipe == INVALID_HANDLE_VALUE ) {
                 if ( running_ ) ALICE_ERROR( "PipeServer: CreateNamedPipe 失败: {}", GetLastError( ) );
@@ -70,14 +69,33 @@ namespace alice {
                 break;
             }
 
-            HandleClient( pipe );
+            // 设置客户端
+            {
+                std::lock_guard lock( write_mutex_ );
+                client_handle_ = pipe;
+            }
+            client_connected_ = true;
 
-            // 客户端断开, 清理
+            if ( OnClientConnected ) OnClientConnected( );
+
+            // 读写分离: 两个独立线程
+            read_thread_ = std::thread( [this, pipe]( ) { ReadLoop( pipe ); } );
+            write_thread_ = std::thread( [this]( ) { WriteLoop( ); } );
+
+            // 等读线程结束 (客户端断开)
+            read_thread_.join( );
+
+            // 停写线程
+            write_running_ = false;
+            write_cv_.notify_one( );
+            write_thread_.join( );
+
+            // 清理
             {
                 std::lock_guard lock( write_mutex_ );
                 if ( client_handle_ == pipe ) {
-                    DisconnectNamedPipe( static_cast<HANDLE>( client_handle_ ) );
-                    ::CloseHandle( static_cast<HANDLE>( client_handle_ ) );
+                    DisconnectNamedPipe( pipe );
+                    ::CloseHandle( pipe );
                     client_handle_ = nullptr;
                 }
             }
@@ -86,15 +104,7 @@ namespace alice {
         }
     }
 
-    void PipeServer::HandleClient( void* handle ) {
-        {
-            std::lock_guard lock( write_mutex_ );
-            client_handle_ = handle;
-        }
-        client_connected_ = true;
-        if ( OnClientConnected ) OnClientConnected( );
-
-        // 行缓冲读取
+    void PipeServer::ReadLoop( void* handle ) {
         std::string buffer;
         char chunk[4096];
 
@@ -106,7 +116,6 @@ namespace alice {
 
             buffer.append( chunk, bytes_read );
 
-            // 按 '\n' 分割完整行
             size_t pos;
             while ( ( pos = buffer.find( '\n' ) ) != std::string::npos ) {
                 auto line = buffer.substr( 0, pos );
@@ -116,16 +125,36 @@ namespace alice {
         }
     }
 
-    void PipeServer::Send( const std::string& line ) {
-        std::lock_guard lock( write_mutex_ );
-        if ( !client_handle_ ) return;
+    void PipeServer::WriteLoop( ) {
+        write_running_ = true;
+        while ( write_running_ ) {
+            std::vector<std::string> batch;
+            {
+                std::unique_lock lock( write_queue_mutex_ );
+                write_cv_.wait_for( lock, std::chrono::milliseconds( 20 ),
+                    [this]( ) { return !write_queue_.empty( ) || !write_running_; } );
+                if ( write_queue_.empty( ) ) continue;
+                batch.swap( write_queue_ );
+            }
 
+            std::lock_guard lock( write_mutex_ );
+            if ( !client_handle_ ) continue;
+
+            for ( auto& data : batch ) {
+                DWORD written = 0;
+                WriteFile( static_cast<HANDLE>( client_handle_ ),
+                           data.data( ), static_cast<DWORD>( data.size( ) ), &written, nullptr );
+            }
+        }
+    }
+
+    void PipeServer::Send( const std::string& line ) {
         std::string data = line;
         if ( data.empty( ) || data.back( ) != '\n' ) data += '\n';
 
-        DWORD written = 0;
-        WriteFile( static_cast<HANDLE>( client_handle_ ),
-                   data.data( ), static_cast<DWORD>( data.size( ) ), &written, nullptr );
+        std::lock_guard lock( write_queue_mutex_ );
+        write_queue_.push_back( std::move( data ) );
+        write_cv_.notify_one( );
     }
 
 } // namespace alice
@@ -160,19 +189,38 @@ namespace alice {
             return std::unexpected( MakeError( ErrorCode::NetRequestFailed, "bind/listen 失败" ) );
         }
 
-        client_handle_ = reinterpret_cast<void*>( static_cast<intptr_t>( -fd - 1 ) );
         running_ = true;
         server_thread_ = std::thread( [this, fd]( ) {
             while ( running_ ) {
                 int cfd = ::accept( fd, nullptr, nullptr );
                 if ( cfd < 0 ) { if ( running_ ) continue; else break; }
 
-                HandleClient( reinterpret_cast<void*>( static_cast<intptr_t>( cfd ) ) );
+                {
+                    std::lock_guard lock( write_mutex_ );
+                    client_handle_ = reinterpret_cast<void*>( static_cast<intptr_t>( cfd ) );
+                }
+                client_connected_ = true;
+                if ( OnClientConnected ) OnClientConnected( );
+
+                // 读循环 (写通过 Send 异步)
+                std::string buffer;
+                char chunk[4096];
+                while ( running_ ) {
+                    ssize_t n = ::read( cfd, chunk, sizeof( chunk ) );
+                    if ( n <= 0 ) break;
+                    buffer.append( chunk, static_cast<size_t>( n ) );
+                    size_t pos;
+                    while ( ( pos = buffer.find( '\n' ) ) != std::string::npos ) {
+                        auto line = buffer.substr( 0, pos );
+                        buffer.erase( 0, pos + 1 );
+                        if ( !line.empty( ) && on_message_ ) on_message_( line );
+                    }
+                }
 
                 ::close( cfd );
                 {
                     std::lock_guard lock( write_mutex_ );
-                    client_handle_ = reinterpret_cast<void*>( static_cast<intptr_t>( -fd - 1 ) );
+                    client_handle_ = nullptr;
                 }
                 client_connected_ = false;
                 if ( OnClientDisconnected ) OnClientDisconnected( );
@@ -188,60 +236,18 @@ namespace alice {
     void PipeServer::Stop( ) {
         if ( !running_ ) return;
         running_ = false;
-
-        {
-            std::lock_guard lock( write_mutex_ );
-            auto raw = reinterpret_cast<intptr_t>( client_handle_ );
-            if ( raw >= 0 ) {
-                ::shutdown( static_cast<int>( raw ), SHUT_RDWR );
-                ::close( static_cast<int>( raw ) );
-            } else {
-                // listen fd 编码为 -(fd+1)
-                int listen_fd = static_cast<int>( -raw - 1 );
-                ::shutdown( listen_fd, SHUT_RDWR );
-            }
-            client_handle_ = nullptr;
-        }
-
+        // TODO: shutdown socket to unblock accept/read
         if ( server_thread_.joinable( ) ) server_thread_.join( );
         ALICE_INFO( "PipeServer: 已停止" );
-    }
-
-    void PipeServer::HandleClient( void* handle ) {
-        {
-            std::lock_guard lock( write_mutex_ );
-            client_handle_ = handle;
-        }
-        client_connected_ = true;
-        if ( OnClientConnected ) OnClientConnected( );
-
-        int fd = static_cast<int>( reinterpret_cast<intptr_t>( handle ) );
-        std::string buffer;
-        char chunk[4096];
-
-        while ( running_ ) {
-            ssize_t n = ::read( fd, chunk, sizeof( chunk ) );
-            if ( n <= 0 ) break;
-
-            buffer.append( chunk, static_cast<size_t>( n ) );
-
-            size_t pos;
-            while ( ( pos = buffer.find( '\n' ) ) != std::string::npos ) {
-                auto line = buffer.substr( 0, pos );
-                buffer.erase( 0, pos + 1 );
-                if ( !line.empty( ) && on_message_ ) on_message_( line );
-            }
-        }
     }
 
     void PipeServer::Send( const std::string& line ) {
         std::lock_guard lock( write_mutex_ );
         auto raw = reinterpret_cast<intptr_t>( client_handle_ );
-        if ( raw < 0 ) return;
+        if ( raw <= 0 ) return;
 
         std::string data = line;
         if ( data.empty( ) || data.back( ) != '\n' ) data += '\n';
-
         ::write( static_cast<int>( raw ), data.data( ), data.size( ) );
     }
 

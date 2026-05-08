@@ -7,15 +7,14 @@
 #include <mutex>
 #include <atomic>
 #include <vector>
+#include <condition_variable>
 
 namespace alice {
 
     /// <summary>
     /// 跨平台 IPC 管道 (单客户端, 行分隔 JSON 协议).
-    /// Windows: Named Pipe (\\.\pipe\Alice_IPC), 字节流模式.
-    /// Linux/macOS: Unix Domain Socket (/tmp/alice_ipc.sock).
-    ///
-    /// 协议: 每条消息一行 JSON + '\n'. 双向.
+    /// 读写分离线程, Send() 永不阻塞调用者.
+    /// Windows: Named Pipe. Linux/macOS: Unix Domain Socket.
     /// </summary>
     class PipeServer {
     public:
@@ -32,6 +31,7 @@ namespace alice {
         bool IsRunning( ) const { return running_.load( ); }
         bool HasClient( ) const { return client_connected_.load( ); }
 
+        /// 非阻塞: 数据进写队列, 由写线程异步发送
         void Send( const std::string& line );
 
         std::function<void( )> OnClientConnected;
@@ -43,11 +43,21 @@ namespace alice {
         MessageHandler on_message_;
 
         std::thread server_thread_;
+        std::thread read_thread_;
+        std::thread write_thread_;
+        std::atomic<bool> write_running_{ false };
+
         void* client_handle_ = nullptr;
         std::mutex write_mutex_;
 
+        // 写队列 (Send 入队, WriteLoop 出队发送)
+        std::mutex write_queue_mutex_;
+        std::condition_variable write_cv_;
+        std::vector<std::string> write_queue_;
+
         void ServerLoop( );
-        void HandleClient( void* handle );
+        void ReadLoop( void* handle );
+        void WriteLoop( );
 
         static constexpr const char* PIPE_NAME =
 #ifdef _WIN32
