@@ -235,8 +235,13 @@ namespace alice {
         plugin_registry_.Unregister( plugin_id );
         host_apis_.erase( plugin_id );
 
-        // 2. 重新加载
-        auto new_plugin = std::make_unique<ScriptPluginAdapter>( manifest );
+        // 2. 按 runtime 类型重建适配器
+        std::unique_ptr<IPlugin> new_plugin;
+        if ( manifest.runtime == "dotnet" ) {
+            new_plugin = std::make_unique<ClrPluginAdapter>( manifest );
+        } else {
+            new_plugin = std::make_unique<ScriptPluginAdapter>( manifest );
+        }
         LoadBuiltinPlugin( std::move( new_plugin ) );
 
         ALICE_INFO( "热重载: {} 完成", plugin_id );
@@ -259,7 +264,7 @@ namespace alice {
 
         fs_watcher_->Watch( mods_dir, [this, mods_dir, state]( platform::FsEvent evt ) {
             auto ext = evt.path.extension( ).string( );
-            if ( ext != ".lua" && ext != ".mjs" && ext != ".js" ) return;
+            if ( ext != ".lua" && ext != ".mjs" && ext != ".js" && ext != ".dll" ) return;
 
             // 从文件路径推断 plugin_id
             auto rel = std::filesystem::relative( evt.path, mods_dir );

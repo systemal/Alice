@@ -16,6 +16,8 @@ namespace alice {
     void* ClrHost::hostfxr_lib_ = nullptr;
     void* ClrHost::runtime_context_ = nullptr;
     void* ClrHost::load_assembly_fn_ = nullptr;
+    ClrHost::LoadPluginFn ClrHost::load_plugin_fn_ = nullptr;
+    ClrHost::UnloadPluginFn ClrHost::unload_plugin_fn_ = nullptr;
 
     static hostfxr_initialize_for_runtime_config_fn init_for_config_fn = nullptr;
     static hostfxr_get_runtime_delegate_fn get_delegate_fn = nullptr;
@@ -143,6 +145,33 @@ namespace alice {
                 std::format( "get_runtime_delegate 失败: 0x{:x}", static_cast<uint32_t>( rc ) ) ) );
         }
 
+        // 获取 PluginLoader 的 LoadPlugin/UnloadPlugin 入口
+        auto sdk_dll_path = std::filesystem::absolute( exe_dir / "sdk" / "Alice.SDK.dll" ).wstring( );
+
+        int32_t lp_rc = cached_load_fn( sdk_dll_path.c_str( ),
+                                         L"Alice.SDK.PluginLoader, Alice.SDK",
+                                         L"LoadPlugin",
+                                         UNMANAGEDCALLERSONLY_METHOD,
+                                         nullptr,
+                                         reinterpret_cast<void**>( &load_plugin_fn_ ) );
+        if ( lp_rc != 0 || !load_plugin_fn_ ) {
+            ALICE_WARN( "CLR: PluginLoader.LoadPlugin 获取失败 (0x{:x}), C# 热重载不可用", static_cast<uint32_t>( lp_rc ) );
+        }
+
+        int32_t up_rc = cached_load_fn( sdk_dll_path.c_str( ),
+                                         L"Alice.SDK.PluginLoader, Alice.SDK",
+                                         L"UnloadPlugin",
+                                         UNMANAGEDCALLERSONLY_METHOD,
+                                         nullptr,
+                                         reinterpret_cast<void**>( &unload_plugin_fn_ ) );
+        if ( up_rc != 0 || !unload_plugin_fn_ ) {
+            ALICE_WARN( "CLR: PluginLoader.UnloadPlugin 获取失败 (0x{:x}), C# 热重载不可用", static_cast<uint32_t>( up_rc ) );
+        }
+
+        if ( load_plugin_fn_ && unload_plugin_fn_ ) {
+            ALICE_INFO( "CLR: PluginLoader 已就绪 (热重载可用)" );
+        }
+
         ALICE_INFO( "CLR: .NET Runtime 已初始化 (sdk: {})", ( exe_dir / "sdk" ).string( ) );
         return VoidResult{};
     }
@@ -172,6 +201,35 @@ namespace alice {
         return entry_point;
     }
 
+    VoidResult ClrHost::LoadPlugin( const std::string& plugin_id,
+                                      const std::filesystem::path& dll_path,
+                                      const std::string& entry_type,
+                                      void* bridge_ptr ) {
+        if ( !load_plugin_fn_ )
+            return std::unexpected( MakeError( ErrorCode::PluginLoadFailed, "PluginLoader 未就绪" ) );
+
+        auto abs_dll = std::filesystem::absolute( dll_path ).string( );
+
+        int rc = load_plugin_fn_( plugin_id.c_str( ), abs_dll.c_str( ), entry_type.c_str( ), bridge_ptr );
+        if ( rc != 0 )
+            return std::unexpected( MakeError( ErrorCode::PluginLoadFailed,
+                std::format( "PluginLoader.LoadPlugin 失败: rc={}", rc ) ) );
+
+        return VoidResult{};
+    }
+
+    VoidResult ClrHost::UnloadPlugin( const std::string& plugin_id ) {
+        if ( !unload_plugin_fn_ )
+            return std::unexpected( MakeError( ErrorCode::PluginLoadFailed, "PluginLoader 未就绪" ) );
+
+        int rc = unload_plugin_fn_( plugin_id.c_str( ) );
+        if ( rc != 0 )
+            return std::unexpected( MakeError( ErrorCode::PluginLoadFailed,
+                std::format( "PluginLoader.UnloadPlugin 失败: rc={}", rc ) ) );
+
+        return VoidResult{};
+    }
+
     void ClrHost::Shutdown( ) {
         if ( runtime_context_ ) {
             close_fn( static_cast<hostfxr_handle>( runtime_context_ ) );
@@ -182,6 +240,8 @@ namespace alice {
             hostfxr_lib_ = nullptr;
         }
         cached_load_fn = nullptr;
+        load_plugin_fn_ = nullptr;
+        unload_plugin_fn_ = nullptr;
         ALICE_INFO( "CLR: 已关闭" );
     }
 
@@ -193,6 +253,8 @@ namespace alice {
     void* ClrHost::hostfxr_lib_ = nullptr;
     void* ClrHost::runtime_context_ = nullptr;
     void* ClrHost::load_assembly_fn_ = nullptr;
+    ClrHost::LoadPluginFn ClrHost::load_plugin_fn_ = nullptr;
+    ClrHost::UnloadPluginFn ClrHost::unload_plugin_fn_ = nullptr;
 
     bool ClrHost::IsInitialized( ) { return false; }
     VoidResult ClrHost::Initialize( const std::filesystem::path& ) { return std::unexpected( MakeError( ErrorCode::PluginLoadFailed, "CLR 不支持此平台" ) ); }
@@ -200,6 +262,12 @@ namespace alice {
     VoidResult ClrHost::LoadHostfxr( ) { return std::unexpected( MakeError( ErrorCode::PluginLoadFailed, "CLR 不支持此平台" ) ); }
     VoidResult ClrHost::EnsureRuntimeConfig( const std::filesystem::path& ) { return std::unexpected( MakeError( ErrorCode::PluginLoadFailed, "CLR 不支持此平台" ) ); }
     Result<void*> ClrHost::LoadAssemblyAndGetEntryPoint( const std::filesystem::path&, const std::wstring&, const std::wstring& ) {
+        return std::unexpected( MakeError( ErrorCode::PluginLoadFailed, "CLR 不支持此平台" ) );
+    }
+    VoidResult ClrHost::LoadPlugin( const std::string&, const std::filesystem::path&, const std::string&, void* ) {
+        return std::unexpected( MakeError( ErrorCode::PluginLoadFailed, "CLR 不支持此平台" ) );
+    }
+    VoidResult ClrHost::UnloadPlugin( const std::string& ) {
         return std::unexpected( MakeError( ErrorCode::PluginLoadFailed, "CLR 不支持此平台" ) );
     }
 }

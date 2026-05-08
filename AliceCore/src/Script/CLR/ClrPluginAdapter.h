@@ -7,10 +7,8 @@ namespace alice {
 
     /// <summary>
     /// C# 插件适配器 — 把 .NET DLL 桥接为 IPlugin.
-    /// OnLoad: 通过 ClrHost 获取 C# Initialize 方法指针, 传入 HostBridge 地址.
-    /// C# 侧通过 P/Invoke 解析 HostBridge, 调用 alice.* API.
-    ///
-    /// 内存约定: C# 回调返回值用 CoTaskMemAlloc, C++ 用 CoTaskMemFree 释放.
+    /// 通过 PluginLoader (C# 侧) 在独立 AssemblyLoadContext 中加载插件,
+    /// 支持热重载: 卸载旧 ALC → 创建新 ALC → 加载新 DLL.
     /// </summary>
     class ClrPluginAdapter : public IPlugin {
     public:
@@ -23,12 +21,6 @@ namespace alice {
     private:
         PluginManifest manifest_;
         HostBridge bridge_{};
-
-        using InitializeFn = void( __cdecl* )( void* );
-        using ShutdownFn = void( __cdecl* )( );
-
-        InitializeFn init_fn_ = nullptr;
-        ShutdownFn shutdown_fn_ = nullptr;
     };
 
 } // namespace alice
