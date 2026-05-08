@@ -1,8 +1,7 @@
-#include "pch.h"
+﻿#include "pch.h"
 #include "Runtime/Runtime.h"
 #include "Platform/Platform.h"
 #include "Storage/FileStorage.h"
-#include "Builtin/BuiltinHello.h"
 #include "Builtin/BuiltinHttpShell.h"
 #include "Script/ScriptPluginAdapter.h"
 #include "Script/CLR/ClrHost.h"
@@ -64,7 +63,6 @@ namespace alice {
 
         // 加载内置插件
         ALICE_INFO( "加载内置插件..." );
-        LoadBuiltinPlugin( std::make_unique<builtin::BuiltinHello>( ) );
         LoadBuiltinPlugin( std::make_unique<builtin::BuiltinHttpShell>( ) );
         ALICE_INFO( "  已加载 {} 个插件", plugin_registry_.Count( ) );
 
@@ -181,8 +179,8 @@ namespace alice {
         route_registry_.BindToDrogon( );
         RegisterWsController( );
 
-        // 启动 FsWatcher 热重载
-        StartFsWatcher( );
+        // FsWatcher 暂不启用, 所有重载由 Manager 通过管道/HTTP 显式触发
+        // StartFsWatcher( );
 
         // 发布 runtime.ready 事件
         event_bus_.Emit( "runtime.ready", {}, "runtime" );
@@ -217,35 +215,83 @@ namespace alice {
     }
 
     void Runtime::ReloadPlugin( const PluginID& plugin_id ) {
+        std::lock_guard lock( reload_mutex_ );
         auto* plugin = plugin_registry_.Get( plugin_id );
-        if ( !plugin ) {
-            ALICE_WARN( "热重载: 插件 {} 不存在", plugin_id );
-            return;
-        }
 
-        auto manifest = plugin->Manifest( );
-        ALICE_INFO( "热重载: {} ({})...", plugin_id, manifest.entry_file );
+        PluginManifest manifest;
 
-        // 1. 卸载旧插件
-        plugin->OnUnload( );
-        service_registry_.UnregisterAll( plugin_id );
-        route_registry_.UnregisterAll( plugin_id );
-        ws_router_.UnregisterAll( plugin_id );
-        pipeline_engine_.UnregisterAll( plugin_id );
-        plugin_registry_.Unregister( plugin_id );
-        host_apis_.erase( plugin_id );
+        if ( plugin ) {
+            // 已加载 → 卸载旧的
+            manifest = plugin->Manifest( );
+            ALICE_INFO( "热重载: {} ({})...", plugin_id, manifest.entry_file );
 
-        // 2. 按 runtime 类型重建适配器
-        std::unique_ptr<IPlugin> new_plugin;
-        if ( manifest.runtime == "dotnet" ) {
-            new_plugin = std::make_unique<ClrPluginAdapter>( manifest );
+            plugin->OnUnload( );
+            service_registry_.UnregisterAll( plugin_id );
+            route_registry_.UnregisterAll( plugin_id );
+            ws_router_.UnregisterAll( plugin_id );
+            pipeline_engine_.UnregisterAll( plugin_id );
+            plugin_registry_.Unregister( plugin_id );
+            host_apis_.erase( plugin_id );
         } else {
-            new_plugin = std::make_unique<ScriptPluginAdapter>( manifest );
-        }
-        LoadBuiltinPlugin( std::move( new_plugin ) );
+            // 未加载 → 扫描 mods/ 目录找到它
+            auto plugin_dir = exe_dir_ / "mods" / plugin_id;
+            auto alice_json = plugin_dir / "alice.json";
+            if ( !std::filesystem::exists( alice_json ) ) {
+                ALICE_WARN( "加载插件失败: {} 不存在", plugin_id );
+                return;
+            }
 
-        ALICE_INFO( "热重载: {} 完成", plugin_id );
-        event_bus_.Emit( "plugin.reloaded", { { "plugin_id", plugin_id } }, "runtime" );
+            auto json = FileStorage::ReadJson( alice_json );
+            if ( !json ) return;
+
+            manifest.id = json->value( "id", plugin_id );
+            manifest.name = json->value( "name", manifest.id );
+            manifest.version = json->value( "version", "0.0.0" );
+            manifest.type = json->value( "type", "plugin" );
+            manifest.runtime = json->value( "runtime", "" );
+            manifest.clr_entry_type = json->value( "entry_type", "" );
+            manifest.path = plugin_dir;
+
+            if ( manifest.runtime == "dotnet" ) {
+                manifest.entry_file = json->value( "entry_file", manifest.id + ".dll" );
+            } else if ( FileStorage::Exists( plugin_dir / "main.lua" ) ) {
+                manifest.entry_file = "main.lua";
+            } else if ( FileStorage::Exists( plugin_dir / "main.mjs" ) ) {
+                manifest.entry_file = "main.mjs";
+            } else if ( FileStorage::Exists( plugin_dir / "main.js" ) ) {
+                manifest.entry_file = "main.js";
+            } else {
+                ALICE_WARN( "加载插件失败: {} 无入口文件", plugin_id );
+                return;
+            }
+
+            ALICE_INFO( "首次加载: {} ({})...", plugin_id, manifest.entry_file );
+
+            if ( manifest.runtime == "dotnet" && !ClrHost::IsInitialized( ) ) {
+                auto clr_result = ClrHost::Initialize( exe_dir_ );
+                if ( !clr_result ) {
+                    ALICE_ERROR( "CLR 初始化失败: {}", clr_result.error( ).message );
+                    return;
+                }
+            }
+        }
+
+        // 加载
+        try {
+            std::unique_ptr<IPlugin> new_plugin;
+            if ( manifest.runtime == "dotnet" ) {
+                new_plugin = std::make_unique<ClrPluginAdapter>( manifest );
+            } else {
+                new_plugin = std::make_unique<ScriptPluginAdapter>( manifest );
+            }
+            LoadBuiltinPlugin( std::move( new_plugin ) );
+            ALICE_INFO( "{}完成: {}", plugin ? "热重载" : "加载", plugin_id );
+            event_bus_.Emit( "plugin.reloaded", { { "plugin_id", plugin_id } }, "runtime" );
+        } catch ( const std::exception& e ) {
+            ALICE_ERROR( "加载插件 {} 失败: {}", plugin_id, e.what( ) );
+        } catch ( ... ) {
+            ALICE_ERROR( "加载插件 {} 失败: 未知异常", plugin_id );
+        }
     }
 
     void Runtime::StartFsWatcher( ) {

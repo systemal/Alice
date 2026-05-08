@@ -4,6 +4,8 @@
 #include "Net/WsRegistry.h"
 #include "Net/WsTypes.h"
 #include "Runtime/Runtime.h"
+#include "Plugin/IPlugin.h"
+#include "Service/ServiceRegistry.h"
 #include <drogon/drogon.h>
 #include <drogon/WebSocketController.h>
 #include <nlohmann/json.hpp>
@@ -33,6 +35,36 @@ namespace {
             conn->setContext( ctx );
 
             ALICE_INFO( "WS 连接建立: {} (conn_id={})", conn->peerAddr( ).toIpPort( ), ctx->conn_id );
+
+            // 推送 state.init — Manager 连接后立即获取全量状态
+            auto& rt = alice::Runtime::Instance( );
+            auto plugins = rt.GetPluginRegistry( ).List( );
+            auto services = rt.GetServiceRegistry( ).List( );
+
+            nlohmann::json plugins_arr = nlohmann::json::array( );
+            for ( auto& p : plugins ) {
+                auto* plugin = rt.GetPluginRegistry( ).Get( p.id );
+                auto manifest = plugin ? plugin->Manifest( ) : alice::PluginManifest{};
+                plugins_arr.push_back( {
+                    { "id", p.id }, { "name", p.name }, { "type", p.type },
+                    { "version", p.version }, { "runtime", manifest.runtime },
+                } );
+            }
+
+            nlohmann::json services_arr = nlohmann::json::array( );
+            for ( auto& s : services ) {
+                services_arr.push_back( {
+                    { "capability", s.capability },
+                    { "provider", s.provider_plugin },
+                    { "healthy", s.healthy },
+                } );
+            }
+
+            conn->send( nlohmann::json{
+                { "type", "state.init" },
+                { "plugins", plugins_arr },
+                { "services", services_arr },
+            }.dump( ) );
         }
 
         void handleNewMessage(

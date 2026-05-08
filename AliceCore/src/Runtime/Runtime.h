@@ -112,10 +112,13 @@ namespace alice {
         /// 这样每个插件的 KV 命名空间、日志前缀、权限都是隔离的.
         /// </summary>
         std::unordered_map<PluginID, std::unique_ptr<HostAPIImpl>> host_apis_;
+        std::mutex reload_mutex_;
 
         void LoadBuiltinPlugin( std::unique_ptr<IPlugin> plugin );
-        void ReloadPlugin( const PluginID& plugin_id );
         void StartFsWatcher( );
+
+    public:
+        void ReloadPlugin( const PluginID& plugin_id );
     };
 
 } // namespace alice

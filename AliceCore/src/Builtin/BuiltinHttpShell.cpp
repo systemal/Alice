@@ -1,6 +1,7 @@
 #include "pch.h"
 #include "Builtin/BuiltinHttpShell.h"
 #include "Host/IHostAPI.h"
+#include "Runtime/Runtime.h"
 #include <drogon/drogon.h>
 
 namespace alice::builtin {
@@ -25,13 +26,44 @@ namespace alice::builtin {
         } );
 
         // GET /api/plugins
-        host_->Net( )->AddRoute( "GET", "/api/plugins", [host]( const nlohmann::json& ) -> nlohmann::json {
-            return nlohmann::json( host->Service( )->List( ) );
+        host_->Net( )->AddRoute( "GET", "/api/plugins", []( const nlohmann::json& ) -> nlohmann::json {
+            auto& registry = Runtime::Instance( ).GetPluginRegistry( );
+            auto plugins = registry.List( );
+            auto arr = nlohmann::json::array( );
+            for ( auto& p : plugins ) {
+                auto* plugin = registry.Get( p.id );
+                auto manifest = plugin ? plugin->Manifest( ) : PluginManifest{};
+                arr.push_back( {
+                    { "id", p.id },
+                    { "name", p.name },
+                    { "type", p.type },
+                    { "version", p.version },
+                    { "runtime", manifest.runtime },
+                    { "path", manifest.path.string( ) },
+                } );
+            }
+            return arr;
         } );
 
         // GET /api/services
         host_->Net( )->AddRoute( "GET", "/api/services", [host]( const nlohmann::json& ) -> nlohmann::json {
             return nlohmann::json( host->Service( )->List( ) );
+        } );
+
+        // POST /api/plugin/reload
+        host_->Net( )->AddRoute( "POST", "/api/plugin/reload", [host]( const nlohmann::json& req ) -> nlohmann::json {
+            nlohmann::json body;
+            try { body = nlohmann::json::parse( req.value( "body", "{}" ) ); }
+            catch ( ... ) { return { { "error", "invalid JSON" } }; }
+
+            auto id = body.value( "id", "" );
+            if ( id.empty( ) ) return { { "error", "missing id" } };
+
+            auto* plugin = Runtime::Instance( ).GetPluginRegistry( ).Get( id );
+            if ( !plugin ) return { { "error", "plugin not found" } };
+
+            host->Event( )->Emit( "plugin.reload.request", { { "plugin_id", id } } );
+            return { { "status", "ok" }, { "plugin_id", id } };
         } );
 
         // POST /api/service/call

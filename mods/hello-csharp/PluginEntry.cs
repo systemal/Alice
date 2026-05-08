@@ -13,7 +13,7 @@ public static class PluginEntry
         Alice.SDK.Alice.Initialize(hostBridgePtr);
 
         Alice.SDK.Alice.Log.Info("========================================");
-        Alice.SDK.Alice.Log.Info("  C# 插件测试");
+        Alice.SDK.Alice.Log.Info("  C# 插件测试 233333333");
         Alice.SDK.Alice.Log.Info("========================================");
 
         int passed = 0;

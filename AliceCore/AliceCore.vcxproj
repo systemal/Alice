@@ -58,7 +58,6 @@
     <ClCompile Include="src\Pipeline\Pipeline.cpp" />
     <ClCompile Include="src\Plugin\PluginRegistry.cpp" />
     <ClCompile Include="src\Host\HostAPIImpl.cpp" />
-    <ClCompile Include="src\Builtin\BuiltinHello.cpp" />
     <ClCompile Include="src\Builtin\BuiltinHttpShell.cpp" />
     <ClCompile Include="src\Script\HostBridge.cpp" />
     <ClCompile Include="src\Script\Lua\LuaEngine.cpp" />
@@ -74,6 +73,7 @@
     <ClCompile Include="src\Net\WsRegistry.cpp" />
     <ClCompile Include="src\Net\WsRouter.cpp" />
     <ClCompile Include="src\Net\WsController.cpp" />
+    <ClCompile Include="src\Net\PipeServer.cpp" />
     <ClCompile Include="src\Platform\WinPlatform.cpp" />
     <!-- bee C++ 底层 -->
     <ClCompile Include="..\ThirdParty\bee\subprocess\subprocess_win.cpp">
@@ -125,7 +125,6 @@
     <ClInclude Include="src\Plugin\PluginRegistry.h" />
     <ClInclude Include="src\Host\IHostAPI.h" />
     <ClInclude Include="src\Host\HostAPIImpl.h" />
-    <ClInclude Include="src\Builtin\BuiltinHello.h" />
     <ClInclude Include="src\Builtin\BuiltinHttpShell.h" />
     <ClInclude Include="src\Script\HostBridge.h" />
     <ClInclude Include="src\Script\Lua\LuaEngine.h" />
@@ -142,10 +141,11 @@
     <ClInclude Include="src\Net\WsRegistry.h" />
     <ClInclude Include="src\Net\WsRouter.h" />
     <ClInclude Include="src\Net\WsController.h" />
+    <ClInclude Include="src\Net\PipeServer.h" />
     <ClInclude Include="src\Platform\Platform.h" />
     <ClInclude Include="src\Storage\FileStorage.h" />
     <ClInclude Include="src\Storage\KvStore.h" />
     <ClInclude Include="src\Storage\Config.h" />
   </ItemGroup>
-<Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
 </Project>

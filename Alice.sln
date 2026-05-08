@@ -8,6 +8,8 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "AliceServer", "AliceServer\
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Alice.SDK", "AliceSdk\Alice.SDK.csproj", "{8E995D03-E003-FA6D-368B-B8FB2A1838E4}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AliceManager", "AliceManager\AliceManager.csproj", "{B0C2C689-041F-43DE-8F4A-05D220D86C93}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -40,6 +42,14 @@ Global
 		{8E995D03-E003-FA6D-368B-B8FB2A1838E4}.Release|Any CPU.Build.0 = Release|Any CPU
 		{8E995D03-E003-FA6D-368B-B8FB2A1838E4}.Release|x64.ActiveCfg = Release|Any CPU
 		{8E995D03-E003-FA6D-368B-B8FB2A1838E4}.Release|x64.Build.0 = Release|Any CPU
+		{B0C2C689-041F-43DE-8F4A-05D220D86C93}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{B0C2C689-041F-43DE-8F4A-05D220D86C93}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{B0C2C689-041F-43DE-8F4A-05D220D86C93}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{B0C2C689-041F-43DE-8F4A-05D220D86C93}.Debug|x64.Build.0 = Debug|Any CPU
+		{B0C2C689-041F-43DE-8F4A-05D220D86C93}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{B0C2C689-041F-43DE-8F4A-05D220D86C93}.Release|Any CPU.Build.0 = Release|Any CPU
+		{B0C2C689-041F-43DE-8F4A-05D220D86C93}.Release|x64.ActiveCfg = Release|Any CPU
+		{B0C2C689-041F-43DE-8F4A-05D220D86C93}.Release|x64.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

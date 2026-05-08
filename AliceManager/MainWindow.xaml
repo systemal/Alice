@@ -1,0 +1,291 @@
+<mah:MetroWindow x:Class="AliceManager.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:mah="clr-namespace:MahApps.Metro.Controls;assembly=MahApps.Metro"
+        xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
+        xmlns:tb="http://www.hardcodet.net/taskbar"
+        Title="Alice Manager"
+        Width="1150" Height="650"
+        MinWidth="850" MinHeight="500"
+        WindowStartupLocation="CenterScreen"
+        TitleCharacterCasing="Normal"
+        ShowIconOnTitleBar="False"
+        SaveWindowPosition="True"
+        BorderThickness="0.5"
+        BorderBrush="Black"
+        TitleBarHeight="30"
+        IsWindowDraggable="True"
+        Loaded="Window_Loaded">
+
+    <mah:MetroWindow.LeftWindowCommands>
+        <mah:WindowCommands>
+            <Button IsHitTestVisible="False">
+                <StackPanel Orientation="Horizontal">
+                    <Ellipse Width="8" Height="8" Margin="0,0,6,0">
+                        <Ellipse.Fill>
+                            <SolidColorBrush Color="#F44336" x:Name="StatusDotColor"/>
+                        </Ellipse.Fill>
+                    </Ellipse>
+                    <TextBlock FontSize="11" Text="Disconnected" x:Name="StatusText"/>
+                </StackPanel>
+            </Button>
+        </mah:WindowCommands>
+    </mah:MetroWindow.LeftWindowCommands>
+
+    <mah:MetroWindow.RightWindowCommands>
+        <mah:WindowCommands>
+            <Button Cursor="Hand" Click="NavButton_Click" Tag="0">
+                <StackPanel Orientation="Horizontal">
+                    <materialDesign:PackIcon Kind="ViewDashboard" Width="14" Height="14"/>
+                    <TextBlock Margin="4,0,0,0" VerticalAlignment="Center" Text="Dashboard"/>
+                </StackPanel>
+            </Button>
+            <Button Cursor="Hand" Click="NavButton_Click" Tag="1">
+                <StackPanel Orientation="Horizontal">
+                    <materialDesign:PackIcon Kind="Package" Width="14" Height="14"/>
+                    <TextBlock Margin="4,0,0,0" VerticalAlignment="Center" Text="Mods"/>
+                </StackPanel>
+            </Button>
+            <Button Cursor="Hand" Click="NavButton_Click" Tag="2">
+                <StackPanel Orientation="Horizontal">
+                    <materialDesign:PackIcon Kind="Refresh" Width="14" Height="14"/>
+                    <TextBlock Margin="4,0,0,0" VerticalAlignment="Center" Text="Status"
+                               x:Name="StatusButtonText"/>
+                </StackPanel>
+            </Button>
+            <Button Cursor="Hand" Click="NavButton_Click" Tag="3">
+                <StackPanel Orientation="Horizontal">
+                    <materialDesign:PackIcon Kind="Cog" Width="14" Height="14"/>
+                    <TextBlock Margin="4,0,0,0" VerticalAlignment="Center" Text="Settings"/>
+                </StackPanel>
+            </Button>
+        </mah:WindowCommands>
+    </mah:MetroWindow.RightWindowCommands>
+
+    <Grid>
+        <TabControl Margin="0" x:Name="MainTab" BorderThickness="0">
+            <TabControl.ItemContainerStyle>
+                <Style TargetType="TabItem">
+                    <Setter Property="Visibility" Value="Collapsed"/>
+                </Style>
+            </TabControl.ItemContainerStyle>
+
+            <!-- ═══ Tab 0: Dashboard ═══ -->
+            <TabItem>
+                <Grid Background="#FFE5E5E5">
+                    <!-- 系统托盘 (图标在 code-behind 生成) -->
+                    <tb:TaskbarIcon x:Name="TrayIcon"
+                                    Visibility="Visible"
+                                    ToolTipText="Alice Manager"
+                                    TrayMouseDoubleClick="TrayIcon_DoubleClick">
+                        <tb:TaskbarIcon.ContextMenu>
+                            <ContextMenu>
+                                <MenuItem Header="Show" Click="TrayMenu_Show"/>
+                                <MenuItem Header="Hide" Click="TrayMenu_Hide"/>
+                                <Separator/>
+                                <MenuItem Header="Restart Server" Click="TrayMenu_RestartServer"/>
+                                <Separator/>
+                                <MenuItem Header="Exit" Click="TrayMenu_Exit"/>
+                            </ContextMenu>
+                        </tb:TaskbarIcon.ContextMenu>
+                    </tb:TaskbarIcon>
+                    <StackPanel Margin="16,12,16,16">
+                        <TextBlock Text="Dashboard" FontSize="18" FontWeight="SemiBold" Margin="0,0,0,16"/>
+
+                        <WrapPanel Margin="0,0,0,12">
+                            <Border Background="White" CornerRadius="3" Padding="16,12" Margin="0,0,10,10"
+                                    BorderBrush="#DDDDDD" BorderThickness="1" Width="180">
+                                <StackPanel>
+                                    <TextBlock Text="Server" FontSize="11" Foreground="#888"/>
+                                    <TextBlock Text="Offline" FontSize="18" FontWeight="Bold" Foreground="#F44336"
+                                               x:Name="DashServerStatus" Margin="0,4,0,0"/>
+                                    <TextBlock Text="localhost:645" FontSize="10" Foreground="#AAA" Margin="0,2,0,0"/>
+                                </StackPanel>
+                            </Border>
+                            <Border Background="White" CornerRadius="3" Padding="16,12" Margin="0,0,10,10"
+                                    BorderBrush="#DDDDDD" BorderThickness="1" Width="180">
+                                <StackPanel>
+                                    <TextBlock Text="Loaded Mods" FontSize="11" Foreground="#888"/>
+                                    <TextBlock Text="0" FontSize="18" FontWeight="Bold"
+                                               x:Name="DashModCount" Margin="0,4,0,0"/>
+                                </StackPanel>
+                            </Border>
+                            <Border Background="White" CornerRadius="3" Padding="16,12" Margin="0,0,10,10"
+                                    BorderBrush="#DDDDDD" BorderThickness="1" Width="180">
+                                <StackPanel>
+                                    <TextBlock Text="Services" FontSize="11" Foreground="#888"/>
+                                    <TextBlock Text="0" FontSize="18" FontWeight="Bold"
+                                               x:Name="DashServiceCount" Margin="0,4,0,0"/>
+                                </StackPanel>
+                            </Border>
+                        </WrapPanel>
+
+                        <TextBlock Text="Quick Actions" FontSize="13" FontWeight="SemiBold" Margin="0,4,0,8"/>
+                        <WrapPanel>
+                            <Button Content="Reload All Mods" Height="25" Width="120" Margin="0,0,6,0"/>
+                            <Button Content="Open Mods Folder" Height="25" Width="130" Margin="0,0,6,0"/>
+                        </WrapPanel>
+                    </StackPanel>
+                </Grid>
+            </TabItem>
+
+            <!-- ═══ Tab 1: Mods (L# Assemblies 布局) ═══ -->
+            <TabItem>
+                <Grid Background="#FFE5E5E5" Margin="0,2,0,-2">
+                    <!-- DataGrid (绝对定位, 留出上下工具栏空间) -->
+                    <DataGrid x:Name="ModsGrid"
+                              Margin="12,44,12,44"
+                              CanUserAddRows="False"
+                              AutoGenerateColumns="False"
+                              SelectionMode="Single"
+                              SelectionUnit="FullRow"
+                              HeadersVisibility="Column"
+                              CanUserResizeColumns="True"
+                              CanUserSortColumns="True"
+                              CellEditEnding="ModsGrid_CellEditEnding">
+                        <DataGrid.Columns>
+                            <DataGridCheckBoxColumn Width="50"
+                                                    Binding="{Binding Enabled, UpdateSourceTrigger=PropertyChanged}"/>
+                            <DataGridTextColumn Header="Name" Width="220"
+                                                Binding="{Binding Name}"/>
+                            <DataGridTextColumn Header="Type" Width="90"
+                                                Binding="{Binding Type}" IsReadOnly="True"/>
+                            <DataGridTextColumn Header="Runtime" Width="90"
+                                                Binding="{Binding Runtime}" IsReadOnly="True"/>
+                            <DataGridTextColumn Header="Version" Width="120"
+                                                Binding="{Binding Version}" IsReadOnly="True"/>
+                            <DataGridTemplateColumn Header="Status" Width="100" IsReadOnly="True">
+                                <DataGridTemplateColumn.CellTemplate>
+                                    <DataTemplate>
+                                        <TextBlock Text="{Binding StatusText}" Padding="4,0">
+                                            <TextBlock.Style>
+                                                <Style TargetType="TextBlock">
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding Status}" Value="Loaded">
+                                                            <Setter Property="Foreground" Value="#4CAF50"/>
+                                                            <Setter Property="FontWeight" Value="SemiBold"/>
+                                                        </DataTrigger>
+                                                        <DataTrigger Binding="{Binding Status}" Value="Disabled">
+                                                            <Setter Property="Foreground" Value="#9E9E9E"/>
+                                                        </DataTrigger>
+                                                        <DataTrigger Binding="{Binding Status}" Value="CompileError">
+                                                            <Setter Property="Foreground" Value="#F44336"/>
+                                                            <Setter Property="FontWeight" Value="SemiBold"/>
+                                                        </DataTrigger>
+                                                        <DataTrigger Binding="{Binding Status}" Value="NotCompiled">
+                                                            <Setter Property="Foreground" Value="#FF9800"/>
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </TextBlock.Style>
+                                        </TextBlock>
+                                    </DataTemplate>
+                                </DataGridTemplateColumn.CellTemplate>
+                            </DataGridTemplateColumn>
+                            <DataGridTextColumn Header="Location" Width="*"
+                                                Binding="{Binding Location}" IsReadOnly="True"/>
+                        </DataGrid.Columns>
+                        <DataGrid.ContextMenu>
+                            <ContextMenu>
+                                <MenuItem Header="Reload" Click="MenuReload_Click">
+                                    <MenuItem.Icon><materialDesign:PackIcon Kind="Refresh" Width="14" Height="14"/></MenuItem.Icon>
+                                </MenuItem>
+                                <MenuItem Header="Compile" Click="MenuCompile_Click">
+                                    <MenuItem.Icon><materialDesign:PackIcon Kind="Hammer" Width="14" Height="14"/></MenuItem.Icon>
+                                </MenuItem>
+                                <MenuItem Header="Update" Click="MenuUpdate_Click">
+                                    <MenuItem.Icon><materialDesign:PackIcon Kind="Download" Width="14" Height="14"/></MenuItem.Icon>
+                                </MenuItem>
+                                <Separator/>
+                                <MenuItem Header="Open Source Folder" Click="MenuOpenSource_Click">
+                                    <MenuItem.Icon><materialDesign:PackIcon Kind="FolderEdit" Width="14" Height="14"/></MenuItem.Icon>
+                                </MenuItem>
+                                <MenuItem Header="Open Runtime Folder" Click="MenuOpenRuntime_Click">
+                                    <MenuItem.Icon><materialDesign:PackIcon Kind="Folder" Width="14" Height="14"/></MenuItem.Icon>
+                                </MenuItem>
+                                <MenuItem Header="GitHub" Click="MenuGithub_Click">
+                                    <MenuItem.Icon><materialDesign:PackIcon Kind="Github" Width="14" Height="14"/></MenuItem.Icon>
+                                </MenuItem>
+                                <Separator/>
+                                <MenuItem Header="Remove" Click="MenuRemove_Click" Foreground="#D32F2F">
+                                    <MenuItem.Icon><materialDesign:PackIcon Kind="Delete" Width="14" Height="14" Foreground="#D32F2F"/></MenuItem.Icon>
+                                </MenuItem>
+                            </ContextMenu>
+                        </DataGrid.ContextMenu>
+                    </DataGrid>
+
+                    <!-- 顶部右侧: 搜索框 -->
+                    <TextBox x:Name="SearchTextBox" Height="26" Width="280"
+                             HorizontalAlignment="Right" VerticalAlignment="Top"
+                             Margin="0,12,12,0"
+                             mah:TextBoxHelper.Watermark="Search mods..."
+                             TextChanged="SearchTextBox_TextChanged"/>
+
+                    <!-- 底部左侧: 批量操作 -->
+                    <Button Content="Update All" HorizontalAlignment="Left"
+                            Margin="12,0,0,12" Width="115" Height="28" VerticalAlignment="Bottom"
+                            Click="UpdateAll_Click"/>
+                    <Button Content="Compile All" HorizontalAlignment="Left"
+                            Margin="133,0,0,12" Width="115" Height="28" VerticalAlignment="Bottom"
+                            Click="CompileAll_Click"/>
+
+                    <!-- 底部右侧: 安装按钮 -->
+                    <Button Content="Install from GitHub" HorizontalAlignment="Right"
+                            Margin="0,0,12,12" Width="190" Height="28" VerticalAlignment="Bottom"
+                            Click="InstallButton_Click"/>
+
+                    <!-- 底部右侧: 进度指示 -->
+                    <mah:ProgressRing IsActive="False" HorizontalAlignment="Right"
+                                      Margin="0,0,24,54" VerticalAlignment="Bottom"
+                                      Width="48" Height="48"
+                                      x:Name="ProgressIndicator"/>
+                </Grid>
+            </TabItem>
+
+            <!-- ═══ Tab 2: Logs ═══ -->
+            <TabItem>
+                <Grid Background="#FFE5E5E5">
+                    <DataGrid x:Name="LogGrid"
+                              Margin="10,10,10,40"
+                              CanUserAddRows="False"
+                              AutoGenerateColumns="False"
+                              IsReadOnly="True"
+                              HeadersVisibility="Column">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="Time" Width="85"
+                                                Binding="{Binding Time}"/>
+                            <DataGridTextColumn Header="Level" Width="65"
+                                                Binding="{Binding Level}"/>
+                            <DataGridTextColumn Header="Source" Width="150"
+                                                Binding="{Binding Source}"/>
+                            <DataGridTextColumn Header="Plugin" Width="130"
+                                                Binding="{Binding Plugin}"/>
+                            <DataGridTextColumn Header="Message" Width="*"
+                                                Binding="{Binding Message}"/>
+                        </DataGrid.Columns>
+                    </DataGrid>
+
+                    <Button Content="Clear Log" HorizontalAlignment="Left"
+                            Margin="10,0,0,10" Width="95" Height="25" VerticalAlignment="Bottom"
+                            Click="ClearLog_Click"/>
+                    <Button Content="Open Folder" HorizontalAlignment="Left"
+                            Margin="110,0,0,10" Width="95" Height="25" VerticalAlignment="Bottom"/>
+                </Grid>
+            </TabItem>
+
+            <!-- ═══ Tab 3: Settings (L# 风格: 左 TreeView + 右 Content) ═══ -->
+            <TabItem>
+                <Grid Background="#FFE5E5E5">
+                    <ContentControl x:Name="SettingsFrame" Margin="167,10,10,10"/>
+                    <TreeView Margin="10,10,0,10" HorizontalAlignment="Left" Width="152"
+                              SelectedItemChanged="SettingsTree_SelectedItemChanged"
+                              x:Name="SettingsTree">
+                        <TreeViewItem Header="General" x:Name="GeneralSettingsItem" IsSelected="True"/>
+                        <TreeViewItem Header="Server"/>
+                        <TreeViewItem Header="Paths"/>
+                    </TreeView>
+                </Grid>
+            </TabItem>
+        </TabControl>
+    </Grid>
+</mah:MetroWindow>
