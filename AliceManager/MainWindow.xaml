@@ -87,44 +87,131 @@
 
             <!-- ═══ Tab 0: Dashboard ═══ -->
             <TabItem>
-                <Grid Background="#FFE5E5E5">
-                    <StackPanel Margin="16,12,16,16">
-                        <TextBlock Text="Dashboard" FontSize="18" FontWeight="SemiBold" Margin="0,0,0,16"/>
-                        <WrapPanel Margin="0,0,0,12">
-                            <Border Background="White" CornerRadius="3" Padding="16,12" Margin="0,0,10,10"
-                                    BorderBrush="#DDDDDD" BorderThickness="1" Width="180">
+                <ScrollViewer Background="#FFE5E5E5" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                    <StackPanel Margin="20,16,20,20">
+
+                        <!-- 状态卡片行 (自适应换行) -->
+                        <UniformGrid Rows="1" Margin="0,0,0,16" x:Name="DashCards">
+                            <!-- Server -->
+                            <Border Background="White" CornerRadius="4" Padding="18,14" Margin="0,0,8,0"
+                                    BorderBrush="#E0E0E0" BorderThickness="1">
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel Grid.Column="0">
+                                        <TextBlock Text="SERVER" FontSize="10" Foreground="#999" FontWeight="SemiBold" Margin="0,0,0,6"/>
+                                        <TextBlock Text="Offline" FontSize="20" FontWeight="Bold" Foreground="#F44336"
+                                                   x:Name="DashServerStatus"/>
+                                        <TextBlock FontSize="10" Foreground="#BBB" Margin="0,4,0,0"
+                                                   x:Name="DashServerAddr" Text="localhost:645"/>
+                                    </StackPanel>
+                                    <Ellipse Grid.Column="1" Width="12" Height="12" VerticalAlignment="Top" Margin="0,2,0,0"
+                                             x:Name="DashServerDot" Fill="#F44336"/>
+                                </Grid>
+                            </Border>
+
+                            <!-- Mods -->
+                            <Border Background="White" CornerRadius="4" Padding="18,14" Margin="4,0,4,0"
+                                    BorderBrush="#E0E0E0" BorderThickness="1">
                                 <StackPanel>
-                                    <TextBlock Text="Server" FontSize="11" Foreground="#888"/>
-                                    <TextBlock Text="Offline" FontSize="18" FontWeight="Bold" Foreground="#F44336"
-                                               x:Name="DashServerStatus" Margin="0,4,0,0"/>
-                                    <TextBlock FontSize="10" Foreground="#AAA" Margin="0,2,0,0"
-                                               x:Name="DashServerAddr" Text="localhost:645"/>
+                                    <TextBlock Text="MODS" FontSize="10" Foreground="#999" FontWeight="SemiBold" Margin="0,0,0,6"/>
+                                    <StackPanel Orientation="Horizontal">
+                                        <TextBlock Text="0" FontSize="20" FontWeight="Bold" x:Name="DashModCount"/>
+                                        <TextBlock Text=" loaded" FontSize="12" Foreground="#999" VerticalAlignment="Bottom" Margin="0,0,0,3"/>
+                                    </StackPanel>
+                                    <TextBlock Text="0 from source" FontSize="10" Foreground="#BBB" Margin="0,4,0,0"
+                                               x:Name="DashModSrcCount"/>
                                 </StackPanel>
                             </Border>
-                            <Border Background="White" CornerRadius="3" Padding="16,12" Margin="0,0,10,10"
-                                    BorderBrush="#DDDDDD" BorderThickness="1" Width="180">
+
+                            <!-- Services -->
+                            <Border Background="White" CornerRadius="4" Padding="18,14" Margin="4,0,4,0"
+                                    BorderBrush="#E0E0E0" BorderThickness="1">
                                 <StackPanel>
-                                    <TextBlock Text="Loaded Mods" FontSize="11" Foreground="#888"/>
-                                    <TextBlock Text="0" FontSize="18" FontWeight="Bold"
-                                               x:Name="DashModCount" Margin="0,4,0,0"/>
+                                    <TextBlock Text="SERVICES" FontSize="10" Foreground="#999" FontWeight="SemiBold" Margin="0,0,0,6"/>
+                                    <StackPanel Orientation="Horizontal">
+                                        <TextBlock Text="0" FontSize="20" FontWeight="Bold" x:Name="DashServiceCount"/>
+                                        <TextBlock Text=" registered" FontSize="12" Foreground="#999" VerticalAlignment="Bottom" Margin="0,0,0,3"/>
+                                    </StackPanel>
                                 </StackPanel>
                             </Border>
-                            <Border Background="White" CornerRadius="3" Padding="16,12" Margin="0,0,10,10"
-                                    BorderBrush="#DDDDDD" BorderThickness="1" Width="180">
+
+                            <!-- Uptime -->
+                            <Border Background="White" CornerRadius="4" Padding="18,14" Margin="8,0,0,0"
+                                    BorderBrush="#E0E0E0" BorderThickness="1">
                                 <StackPanel>
-                                    <TextBlock Text="Services" FontSize="11" Foreground="#888"/>
-                                    <TextBlock Text="0" FontSize="18" FontWeight="Bold"
-                                               x:Name="DashServiceCount" Margin="0,4,0,0"/>
+                                    <TextBlock Text="UPTIME" FontSize="10" Foreground="#999" FontWeight="SemiBold" Margin="0,0,0,6"/>
+                                    <TextBlock Text="--:--:--" FontSize="20" FontWeight="Bold" x:Name="DashUptime"/>
                                 </StackPanel>
                             </Border>
+                        </UniformGrid>
+
+                        <!-- Quick Actions -->
+                        <TextBlock Text="Quick Actions" FontSize="13" FontWeight="SemiBold" Margin="0,0,0,10"/>
+                        <WrapPanel Margin="0,0,0,16">
+                            <Button Height="28" Margin="0,0,6,6" Padding="12,0" Click="OpenModsFolder_Click">
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Text="&#xE8B7;" FontFamily="Segoe MDL2 Assets" FontSize="12" Margin="0,0,6,0" VerticalAlignment="Center"/>
+                                    <TextBlock Text="Open Mods Folder"/>
+                                </StackPanel>
+                            </Button>
+                            <Button Height="28" Margin="0,0,6,6" Padding="12,0" Click="DashInstall_Click">
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Text="&#xE710;" FontFamily="Segoe MDL2 Assets" FontSize="12" Margin="0,0,6,0" VerticalAlignment="Center"/>
+                                    <TextBlock Text="Install Mod"/>
+                                </StackPanel>
+                            </Button>
+                            <Button Height="28" Margin="0,0,6,6" Padding="12,0" Click="DashOpenConfig_Click">
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Text="&#xE713;" FontFamily="Segoe MDL2 Assets" FontSize="12" Margin="0,0,6,0" VerticalAlignment="Center"/>
+                                    <TextBlock Text="Open Config"/>
+                                </StackPanel>
+                            </Button>
                         </WrapPanel>
-                        <TextBlock Text="Quick Actions" FontSize="13" FontWeight="SemiBold" Margin="0,4,0,8"/>
-                        <WrapPanel>
-                            <Button Content="Reload All Mods" Height="25" Width="120" Margin="0,0,6,0"/>
-                            <Button Content="Open Mods Folder" Height="25" Width="130" Margin="0,0,6,0" Click="OpenModsFolder_Click"/>
-                        </WrapPanel>
+
+                        <!-- Loaded Mods 列表 -->
+                        <TextBlock Text="Loaded Mods" FontSize="13" FontWeight="SemiBold" Margin="0,0,0,8"/>
+                        <ItemsControl x:Name="DashModList">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Border Background="White" CornerRadius="3" Padding="12,8" Margin="0,0,0,4"
+                                            BorderBrush="#E8E8E8" BorderThickness="1">
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="Auto"/>
+                                                <ColumnDefinition Width="Auto"/>
+                                            </Grid.ColumnDefinitions>
+                                            <StackPanel Grid.Column="0" Orientation="Horizontal">
+                                                <TextBlock Text="{Binding Name}" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                                                <TextBlock Text="{Binding Version}" FontSize="10" Foreground="#AAA"
+                                                           Margin="8,0,0,0" VerticalAlignment="Center"/>
+                                            </StackPanel>
+                                            <TextBlock Grid.Column="1" Text="{Binding Runtime}" FontSize="10"
+                                                       Foreground="#888" VerticalAlignment="Center" Margin="0,0,12,0"/>
+                                            <TextBlock Grid.Column="2" Text="{Binding StatusText}" FontSize="10"
+                                                       VerticalAlignment="Center">
+                                                <TextBlock.Style>
+                                                    <Style TargetType="TextBlock">
+                                                        <Setter Property="Foreground" Value="#999"/>
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding Status}" Value="Loaded">
+                                                                <Setter Property="Foreground" Value="#4CAF50"/>
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </TextBlock.Style>
+                                            </TextBlock>
+                                        </Grid>
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+
                     </StackPanel>
-                </Grid>
+                </ScrollViewer>
             </TabItem>
 
             <!-- ═══ Tab 1: Mods ═══ -->

@@ -25,6 +25,8 @@ public partial class MainWindow : MetroWindow
     private readonly List<LogEntry> _logBuffer = [];
     private readonly object _logLock = new();
     private System.Windows.Threading.DispatcherTimer? _logTimer;
+    private System.Windows.Threading.DispatcherTimer? _uptimeTimer;
+    private DateTime _serverStartTime;
     private bool _realExit;
 
     public MainWindow()
@@ -65,6 +67,7 @@ public partial class MainWindow : MetroWindow
         {
             if (args.NewItems != null)
                 foreach (ModInfo mod in args.NewItems) WatchModEnabled(mod);
+            RefreshDashboard();
         };
         RefreshDashboard();
 
@@ -161,11 +164,35 @@ public partial class MainWindow : MetroWindow
         DashServerStatus.Text = connected ? "Online" : "Offline";
         DashServerStatus.Foreground = new SolidColorBrush(
             connected ? Color.FromRgb(0x4C, 0xAF, 0x50) : Color.FromRgb(0xF4, 0x43, 0x36));
+        DashServerDot.Fill = new SolidColorBrush(
+            connected ? Color.FromRgb(0x4C, 0xAF, 0x50) : Color.FromRgb(0xF4, 0x43, 0x36));
+
+        if (connected)
+        {
+            _serverStartTime = DateTime.Now;
+            if (_uptimeTimer == null)
+            {
+                _uptimeTimer = new System.Windows.Threading.DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
+                _uptimeTimer.Tick += (_, _) =>
+                {
+                    var elapsed = DateTime.Now - _serverStartTime;
+                    DashUptime.Text = elapsed.ToString(@"hh\:mm\:ss");
+                };
+            }
+            _uptimeTimer.Start();
+        }
+        else
+        {
+            _uptimeTimer?.Stop();
+            DashUptime.Text = "--:--:--";
+        }
     }
 
     private void RefreshDashboard()
     {
         DashModCount.Text = _modManager.Mods.Count.ToString();
+        DashModSrcCount.Text = $"{_modManager.Mods.Count(m => m.HasSource)} from source";
+        DashModList.ItemsSource = _modManager.Mods;
     }
 
     private void TrimLogs()
@@ -458,6 +485,21 @@ public partial class MainWindow : MetroWindow
         var modsDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "mods");
         if (Directory.Exists(modsDir))
             Process.Start("explorer", modsDir);
+    }
+
+    private void DashInstall_Click(object sender, RoutedEventArgs e)
+    {
+        var dlg = new Views.InstallModWindow(_modManager) { Owner = this };
+        dlg.ShowDialog();
+        _modManager.Scan();
+        RefreshDashboard();
+    }
+
+    private void DashOpenConfig_Click(object sender, RoutedEventArgs e)
+    {
+        var configPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "data", "config.json");
+        if (File.Exists(configPath))
+            Process.Start(new ProcessStartInfo(configPath) { UseShellExecute = true });
     }
 
     // ── Settings (持久化) ──
